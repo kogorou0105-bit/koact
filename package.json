@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "dev:todo": "pnpm --filter todo-app dev",
     "dev:template": "pnpm --filter template dev",
     "dev:perf": "pnpm --filter perf dev",
+    "dev:fra": "pnpm --filter fragment dev",
     "test": "vitest",
     "test:run": "vitest run",
     "test:ui": "vitest --ui",

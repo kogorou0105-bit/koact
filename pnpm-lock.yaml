@@ -40,7 +40,36 @@ importers:
         specifier: ^5.0.0
         version: 5.4.21(@types/node@25.0.10)
 
+  examples/fragment:
+    dependencies:
+      '@koact/react':
+        specifier: workspace:*
+        version: link:../../packages/react
+      '@koact/react-dom':
+        specifier: workspace:*
+        version: link:../../packages/react-dom
+    devDependencies:
+      vite:
+        specifier: ^5.2.0
+        version: 5.4.21(@types/node@25.0.10)
+
   examples/heavy-demo:
+    dependencies:
+      '@koact/react':
+        specifier: workspace:*
+        version: link:../../packages/react
+      '@koact/react-dom':
+        specifier: workspace:*
+        version: link:../../packages/react-dom
+    devDependencies:
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^5.0.0
+        version: 5.4.21(@types/node@25.0.10)
+
+  examples/performance-demo:
     dependencies:
       '@koact/react':
         specifier: workspace:*
