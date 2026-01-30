@@ -5,9 +5,13 @@
   "main": "index.js",
   "scripts": {
     "dev:todo": "pnpm --filter todo-app dev",
+    "dev:template": "pnpm --filter template dev",
+    "dev:perf": "pnpm --filter perf dev",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "build:todo": "pnpm --filter todo-app build",
+    "create": "node scripts/create.js"
   },
   "keywords": [],
   "author": "",

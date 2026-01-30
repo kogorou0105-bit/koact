@@ -1,6 +1,4 @@
-// packages/react/src/index.ts
-
-// 1. 定义 Element 接口
+import { IGNORABLE_CHILDREN } from "./constant/constant";
 export interface ReactElement {
   type: string | Function;
   props: {
@@ -9,9 +7,6 @@ export interface ReactElement {
   };
 }
 
-const IGNORABLE_CHILDREN = [false, true, null, undefined];
-
-// 2. 为参数和返回值添加类型
 export function createElement(
   type: string | Function,
   props: any,
@@ -45,16 +40,17 @@ function createTextElement(text: string | number): ReactElement {
   };
 }
 
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      // 这句话的意思是：允许任意的 HTML 标签（div, span, p...），不做严格检查
+      [elemName: string]: any;
+    }
+  }
+}
+
 const React = {
   createElement,
 };
-
-export interface ChangeEvent<T = any> {
-  target: T;
-  type?: string;
-  // 你可以根据需要补充更多原生 Event 的属性，比如 preventDefault
-  preventDefault?: () => void;
-  stopPropagation?: () => void;
-}
 
 export default React;

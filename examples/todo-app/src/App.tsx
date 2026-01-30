@@ -1,6 +1,7 @@
 import React from "@koact/react";
 import type { ChangeEvent } from "react";
 import { useState } from "@koact/react-dom";
+import { useEffect } from "@koact/react-dom";
 
 /** @jsx React.createElement */
 
@@ -18,7 +19,6 @@ export default function App() {
   ]);
   const [inputText, setInputText] = useState("");
   const [willDeleteId, setWillDeleteId] = useState<number[]>([]);
-  console.log(willDeleteId);
   // 处理输入框变化
   const handleInput = (e: ChangeEvent<HTMLInputElement>) => {
     // 这里虽然不依赖旧状态，但保持一致性也可以写成函数
@@ -62,6 +62,20 @@ export default function App() {
       });
     });
   };
+
+  useEffect(() => {
+    console.log("App mounted or updated");
+
+    // 模拟订阅/清理
+    const timer = setInterval(() => {
+      console.log("Timer ticking...");
+    }, 1000);
+
+    return () => {
+      console.log("Cleanup timer");
+      clearInterval(timer);
+    };
+  }, []); // 空数组，只在 mount/unmount 执行
 
   // 3. 清理已完成 (依赖旧数组 -> 过滤)
   const clearDone = () => {
@@ -122,6 +136,7 @@ export default function App() {
           return (
             <li
               onClick={() => toggleTodo(index)}
+              key={todo.id}
               style={{
                 padding: "10px",
                 borderBottom: "1px solid #eee",
