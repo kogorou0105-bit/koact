@@ -1,7 +1,7 @@
 import type { ReactElement } from "@koact/react";
 
 export interface Fiber {
-  type?: string | Function;
+  type?: string | Function | symbol;
   props: {
     children: ReactElement[];
     [key: string]: any;

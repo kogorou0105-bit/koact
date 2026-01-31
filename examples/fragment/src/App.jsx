@@ -1,14 +1,26 @@
-import React from "@koact/react";
+import Koact from "@koact/react";
 import { useState } from "@koact/react-dom";
-function App() {
-  const [count, setCount] = useState(0);
 
+function Notifications() {
   return (
-    <div>
-      <h1>Hello Koact (JS Mode)</h1>
-      <button onClick={() => setCount((c) => c + 1)}>Count is: {count}</button>
-    </div>
+    <>
+      <div className="toast success">✅ 操作成功</div>
+      <div className="toast info">ℹ️ 记得保存</div>
+    </>
   );
 }
 
+function App() {
+  const [show, setShow] = useState(true);
+
+  return (
+    <div className="container">
+      <button onClick={() => setShow((pre) => !pre)}>切换消息</button>
+      <div className="list-area">
+        {/* 当 show 变为 false 时，<Notifications /> 及其子树应该被完全移除 */}
+        {show && <Notifications />}
+      </div>
+    </div>
+  );
+}
 export default App;

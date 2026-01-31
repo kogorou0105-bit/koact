@@ -1,4 +1,4 @@
-import React from "@koact/react";
+import Koact from "@koact/react";
 import ReactDOM from "@koact/react-dom";
 import App from "./App";
 

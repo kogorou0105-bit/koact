@@ -40,7 +40,7 @@ function commitWork(fiber?: Fiber) {
 }
 
 function commitDeletion(fiber: Fiber, domParent?: HTMLElement | Text) {
-  // 如果没有传入 domParent，则自动向上查找最近的 DOM 父节点
+  // 1. 自动向上查找最近的 DOM 父节点 (保持原有逻辑)
   if (!domParent) {
     let parent = fiber.parent;
     while (parent && !parent.dom) {
@@ -49,20 +49,29 @@ function commitDeletion(fiber: Fiber, domParent?: HTMLElement | Text) {
     if (parent && parent.dom) domParent = parent.dom;
   }
 
-  // 1. 如果当前 fiber 有 DOM，直接从父节点移除
+  // 2. 处理 DOM 移除
   if (fiber.dom && domParent) {
+    // 情况 A: 当前 Fiber 有真实 DOM (如 div, p)
+    // 直接移除即可，浏览器会自动移除其下的所有子元素视觉表现
     domParent.removeChild(fiber.dom);
+  } else {
+    // 情况 B: 当前 Fiber 没有 DOM (如 Fragment, 函数组件)
+    // 它的“本体”就是它所有的子节点。
+    // 我们必须遍历它的 children 链表，递归调用 commitDeletion，
+    // 确保它的每一个子节点（及其子树中的 DOM）都被移除。
+
+    let child = fiber.child;
+    while (child) {
+      commitDeletion(child, domParent);
+      child = child.sibling;
+    }
   }
 
-  // 2. 递归清理 Hooks (useEffect cleanup)
+  // 3. 清理 Hooks
+  // 注意：这里的 cleanupHooks 也会递归清理子树的 hooks。
+  // 虽然在上面的 while 循环中 commitDeletion(child) 也会触发子节点的 cleanupHooks，
+  // 导致一定的重复遍历，但在简单实现中这是为了确保当前 fiber 自身的 hooks (如果是函数组件) 能被清理。
   cleanupHooks(fiber);
-
-  // 3. 如果当前 fiber 没有 DOM (即函数组件)，
-  // 我们需要递归查找其子节点中真正的 DOM 进行移除
-  // 注意：这里我们把找到的 domParent 传下去，避免子节点重复查找
-  if (!fiber.dom && fiber.child) {
-    commitDeletion(fiber.child, domParent);
-  }
 }
 
 function commitEffects(fiber: Fiber | null) {

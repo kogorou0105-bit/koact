@@ -1,6 +1,9 @@
 import { IGNORABLE_CHILDREN } from "./constant/constant";
+
+export const Fragment = Symbol.for("koact.fragment");
+
 export interface ReactElement {
-  type: string | Function;
+  type: string | Function | symbol;
   props: {
     children: ReactElement[];
     [key: string]: any;
@@ -51,6 +54,7 @@ declare global {
 
 const React = {
   createElement,
+  Fragment,
 };
 
 export default React;

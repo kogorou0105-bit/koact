@@ -91,9 +91,6 @@ export function useMemo<T>(factory: () => T, deps: any[]): T {
   const hook: Hook = {
     tag: "MEMO",
     deps: deps,
-    // 🔥 核心逻辑：
-    // 如果依赖变了(hasChanged)，就执行 factory() 重新计算
-    // 否则，直接沿用旧值 (oldHook.state)
     state: hasChanged ? factory() : oldHook?.state,
   };
 

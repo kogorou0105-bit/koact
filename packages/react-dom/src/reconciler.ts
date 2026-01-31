@@ -2,11 +2,15 @@
 import { Fiber } from "./types";
 import { createDom } from "./dom";
 import { Globals } from "./globals";
+import { Fragment } from "@koact/react";
 
 export function performUnitOfWork(fiber: Fiber): Fiber | null {
   const isFunctionComponent = fiber.type instanceof Function;
+  const isFragment = fiber.type === Fragment;
   if (isFunctionComponent) {
     updateFunctionComponent(fiber);
+  } else if (isFragment) {
+    updateFragmentComponent(fiber);
   } else {
     updateHostComponent(fiber);
   }
@@ -22,6 +26,11 @@ export function performUnitOfWork(fiber: Fiber): Fiber | null {
     nextFiber = nextFiber.parent;
   }
   return null;
+}
+
+function updateFragmentComponent(fiber: Fiber) {
+  // Fragment 只需要处理子节点，本身不产生 DOM，也不运行 Hook
+  reconcileChildren(fiber, fiber.props.children);
 }
 
 function updateFunctionComponent(fiber: Fiber) {
