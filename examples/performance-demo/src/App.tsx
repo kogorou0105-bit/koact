@@ -1,5 +1,5 @@
 import Koact from "@koact/react";
-import { useState, useMemo } from "@koact/react-dom";
+import { useState, useMemo } from "@koact/react";
 
 // === 通用部分 ===
 const styles = {

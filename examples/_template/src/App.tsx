@@ -1,5 +1,5 @@
 import Koact from "@koact/react";
-import { useState } from "@koact/react-dom";
+import { useState } from "@koact/react";
 
 export function App() {
   const [count, setCount] = useState(0);

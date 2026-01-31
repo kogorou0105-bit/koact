@@ -1,4 +1,6 @@
+// packages/react/src/index.ts
 import { IGNORABLE_CHILDREN } from "./constant/constant";
+import { resolveDispatcher, SharedInternals } from "./dispatcher";
 
 export const Fragment = Symbol.for("koact.fragment");
 
@@ -23,7 +25,6 @@ export function createElement(
         .flat(Infinity)
         .filter((child) => !IGNORABLE_CHILDREN.includes(child))
         .map((child) => {
-          // 3. 处理基本类型节点
           if (typeof child === "object") {
             return child;
           }
@@ -43,10 +44,35 @@ function createTextElement(text: string | number): ReactElement {
   };
 }
 
+// ========== 新增 Hooks 导出  ==========
+
+export function useState<T>(initial: T) {
+  return resolveDispatcher().useState(initial);
+}
+
+export function useEffect(callback: () => void | (() => void), deps?: any[]) {
+  return resolveDispatcher().useEffect(callback, deps);
+}
+
+export function useMemo<T>(factory: () => T, deps: any[]) {
+  return resolveDispatcher().useMemo(factory, deps);
+}
+
+export function useCallback<T extends Function>(callback: T, deps: any[]) {
+  return resolveDispatcher().useCallback(callback, deps);
+}
+
+export function useRef<T>(initial: T) {
+  return resolveDispatcher().useRef(initial);
+}
+
+export const __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED = {
+  SharedInternals,
+};
+
 declare global {
   namespace JSX {
     interface IntrinsicElements {
-      // 这句话的意思是：允许任意的 HTML 标签（div, span, p...），不做严格检查
       [elemName: string]: any;
     }
   }
@@ -55,6 +81,12 @@ declare global {
 const React = {
   createElement,
   Fragment,
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+  __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED,
 };
 
 export default React;

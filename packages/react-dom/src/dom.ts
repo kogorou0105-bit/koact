@@ -13,7 +13,8 @@ export function createDom(fiber: Fiber): HTMLElement | Text {
 }
 
 const isEvent = (key: string) => key.startsWith("on");
-const isProperty = (key: string) => key !== "children" && !isEvent(key);
+const isProperty = (key: string) =>
+  key !== "children" && key !== "ref" && !isEvent(key);
 const isNew = (prev: any, next: any) => (key: string) =>
   prev[key] !== next[key];
 const isGone = (prev: any, next: any) => (key: string) => !(key in next);

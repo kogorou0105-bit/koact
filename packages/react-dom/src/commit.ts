@@ -34,9 +34,15 @@ function commitWork(fiber?: Fiber) {
   } else if (fiber.effectTag === "DELETION") {
     // commitDeletion 已经处理了 DOM 移除
   }
-
+  commitRef(fiber);
   commitWork(fiber.child);
   commitWork(fiber.sibling);
+}
+
+function commitRef(fiber: Fiber) {
+  if (fiber.props && fiber.props.ref) {
+    fiber.props.ref.current = fiber.dom;
+  }
 }
 
 function commitDeletion(fiber: Fiber, domParent?: HTMLElement | Text) {

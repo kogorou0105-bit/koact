@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": ["ESNext", "DOM"],
+    "moduleResolution": "Node",
+    "strict": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "noEmit": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noImplicitReturns": true,
+    "skipLibCheck": true,
+    "jsx": "react",
+    "jsxFactory": "Koact.createElement",
+    "jsxFragmentFactory": "Koact.Fragment",
+    "baseUrl": ".",
+    "paths": {
+      "@koact/react": ["../../packages/react/src/index.ts"],
+      "@koact/react-dom": ["../../packages/react-dom/src/index.ts"]
+    }
+  },
+
+  "include": ["src"]
+}

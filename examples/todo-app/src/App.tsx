@@ -1,7 +1,6 @@
 import React from "@koact/react";
 import type { ChangeEvent } from "react";
-import { useState } from "@koact/react-dom";
-import { useEffect } from "@koact/react-dom";
+import { useState, useEffect } from "@koact/react";
 
 /** @jsx React.createElement */
 

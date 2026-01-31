@@ -17,7 +17,7 @@ export interface Fiber {
 }
 
 export interface Hook {
-  tag: "STATE" | "EFFECT" | "MEMO"; // 区分 Hook 类型
+  tag: "STATE" | "EFFECT" | "MEMO" | "REF"; // 区分 Hook 类型
   // for useState
   state?: any;
   queue?: any[];

@@ -104,3 +104,26 @@ export function useCallback<T extends Function>(callback: T, deps: any[]): T {
   // useCallback 其实就是 useMemo 的语法糖
   return useMemo(() => callback, deps);
 }
+
+export function useRef<T>(initial: T): { current: T } {
+  if (!Globals.wipFiber) {
+    throw new Error("useRef must be used within a component.");
+  }
+
+  const oldHook =
+    Globals.wipFiber.alternate &&
+    Globals.wipFiber.alternate.hooks &&
+    Globals.wipFiber.alternate.hooks[Globals.hookIndex];
+
+  // 如果有旧 hook，直接复用它的 value (即 { current: ... } 对象)
+  // 如果没有，创建一个新的对象
+  const hook: Hook = {
+    tag: "REF",
+    state: oldHook ? oldHook.state : { current: initial },
+  };
+
+  Globals.wipFiber.hooks!.push(hook);
+  Globals.hookIndex++;
+
+  return hook.state;
+}
