@@ -2,6 +2,14 @@
 import { Fiber } from "./types";
 import { updateDom } from "./dom";
 import { Globals } from "./globals";
+import { KoactEvents } from "./events"; // 引入事件总线
+declare global {
+  interface Window {
+    __KOACT_DEVTOOLS_HOOK__?: {
+      emit: (event: string, data: any) => void;
+    };
+  }
+}
 
 export function commitRoot() {
   Globals.deletions.forEach((fiber) => commitDeletion(fiber));
@@ -14,6 +22,8 @@ export function commitRoot() {
   }
   Globals.currentRoot = Globals.wipRoot;
   Globals.wipRoot = null;
+
+  KoactEvents.emit("commit", Globals.currentRoot);
 }
 
 function commitWork(fiber?: Fiber) {

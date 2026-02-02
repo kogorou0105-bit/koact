@@ -7,6 +7,7 @@ import { commitRoot } from "./commit";
 export function render(element: ReactElement, container: HTMLElement) {
   Globals.wipRoot = {
     dom: container,
+    type: "div",
     props: {
       children: [element],
     },

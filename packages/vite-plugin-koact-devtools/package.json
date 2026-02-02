@@ -1,0 +1,14 @@
+{
+  "name": "vite-plugin-koact-devtools",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "description": "Koact 调试工具 Vite 插件",
+  "peerDependencies": {
+    "vite": "^6.0.0 || ^7.0.0"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0",
+    "@types/node": "^20.0.0"
+  }
+}

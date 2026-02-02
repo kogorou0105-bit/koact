@@ -83,10 +83,13 @@ export default function App() {
     });
   };
 
-  const handleTransitionEnd = () => {
+  const handleTransitionEnd = (e) => {
+    if (e.propertyName !== "opacity") return;
+
     setTodos((prevTodos) => {
       return prevTodos.filter((todo) => !todo.done);
     });
+    setWillDeleteId([]);
   };
 
   // 动态计算剩余数量
