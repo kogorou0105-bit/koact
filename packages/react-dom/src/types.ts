@@ -12,8 +12,8 @@ export interface Fiber {
   sibling?: Fiber;
   alternate?: Fiber | null; // 指向上一棵树对应的 Fiber (用于 Diff)
   effectTag?: "PLACEMENT" | "UPDATE" | "DELETION";
-  hooks?: Hook[]; // 函数组件的 Hooks 链表
   key?: null | string | number;
+  memoizedState?: Hook | null;
 }
 
 export interface Hook {
@@ -26,4 +26,5 @@ export interface Hook {
   deps?: any[];
   cleanup?: (() => void) | void;
   hasChanged?: boolean; // 标记本次是否需要执行
+  next?: Hook | null;
 }

@@ -2,25 +2,58 @@
 import { Globals } from "./globals";
 import { Hook } from "./types";
 
+function updateWorkInProgressHook(
+  tag: "STATE" | "EFFECT" | "MEMO" | "REF",
+): Hook {
+  let hook: Hook;
+
+  if (Globals.currentHook) {
+    // 【更新阶段】：从老链表克隆 Hook
+    hook = {
+      tag: Globals.currentHook.tag,
+      state: Globals.currentHook.state,
+      queue: Globals.currentHook.queue,
+      callback: Globals.currentHook.callback,
+      deps: Globals.currentHook.deps,
+      cleanup: Globals.currentHook.cleanup,
+      hasChanged: Globals.currentHook.hasChanged,
+      next: null, // 断开老链接
+    };
+    // 指针往后走一步
+    Globals.currentHook = Globals.currentHook.next || null;
+  } else {
+    // 【挂载阶段】：新建空白 Hook
+    hook = {
+      tag,
+      queue: [],
+      next: null,
+    };
+  }
+
+  // 将构造好的 hook 挂载到当前 Fiber 的链表上
+  if (Globals.workInProgressHook === null) {
+    Globals.wipFiber!.memoizedState = Globals.workInProgressHook = hook;
+  } else {
+    Globals.workInProgressHook.next = hook;
+    Globals.workInProgressHook = hook;
+  }
+
+  return Globals.workInProgressHook;
+}
+
 export function useState<T>(
   initial: T,
 ): [T, (action: T | ((prevState: T) => T)) => void] {
   if (!Globals.wipFiber) {
     throw new Error("useState must be used within a component.");
   }
+  const hook = updateWorkInProgressHook("STATE");
 
-  const oldHook =
-    Globals.wipFiber.alternate &&
-    Globals.wipFiber.alternate.hooks &&
-    Globals.wipFiber.alternate.hooks[Globals.hookIndex];
+  if (hook.state === undefined) {
+    hook.state = initial;
+  }
 
-  const hook: Hook = {
-    tag: "STATE",
-    state: oldHook ? oldHook.state : initial,
-    queue: [],
-  };
-
-  const actions = oldHook ? oldHook.queue : [];
+  const actions = hook.queue;
   actions?.forEach((action) => {
     if (action instanceof Function) {
       hook.state = action(hook.state);
@@ -28,6 +61,8 @@ export function useState<T>(
       hook.state = action;
     }
   });
+
+  hook.queue = []; // 清空处理过的队列
 
   const setState = (action: any) => {
     hook.queue!.push(action);
@@ -42,8 +77,6 @@ export function useState<T>(
     }
   };
 
-  Globals.wipFiber.hooks!.push(hook);
-  Globals.hookIndex++;
   return [hook.state, setState];
 }
 
@@ -54,48 +87,29 @@ function hasDepsChanged(prevDeps?: any[], nextDeps?: any[]) {
 }
 
 export function useEffect(callback: () => void | (() => void), deps?: any[]) {
-  if (!Globals.wipFiber) {
+  if (!Globals.wipFiber)
     throw new Error("useEffect must be used within a component.");
-  }
 
-  const oldHook =
-    Globals.wipFiber.alternate &&
-    Globals.wipFiber.alternate.hooks &&
-    Globals.wipFiber.alternate.hooks[Globals.hookIndex];
+  const hook = updateWorkInProgressHook("EFFECT");
+  // 注意：因为上面 clone 了老 hook，此时 hook.deps 就是旧的 deps
+  const hasChanged = hasDepsChanged(hook.deps, deps);
 
-  const hasChanged = hasDepsChanged(oldHook?.deps, deps);
-
-  const hook: Hook = {
-    tag: "EFFECT",
-    callback: callback,
-    deps: deps,
-    cleanup: oldHook?.cleanup,
-    hasChanged: hasChanged,
-  };
-
-  Globals.wipFiber.hooks!.push(hook);
-  Globals.hookIndex++;
+  hook.callback = callback;
+  hook.deps = deps;
+  hook.hasChanged = hasChanged;
 }
 
 export function useMemo<T>(factory: () => T, deps: any[]): T {
   if (!Globals.wipFiber)
     throw new Error("useMemo must be used within a component.");
 
-  const oldHook =
-    Globals.wipFiber.alternate &&
-    Globals.wipFiber.alternate.hooks &&
-    Globals.wipFiber.alternate.hooks[Globals.hookIndex];
+  const hook = updateWorkInProgressHook("MEMO");
+  const hasChanged = hasDepsChanged(hook.deps, deps);
 
-  const hasChanged = hasDepsChanged(oldHook?.deps, deps);
-
-  const hook: Hook = {
-    tag: "MEMO",
-    deps: deps,
-    state: hasChanged ? factory() : oldHook?.state,
-  };
-
-  Globals.wipFiber.hooks!.push(hook);
-  Globals.hookIndex++;
+  hook.deps = deps;
+  if (hasChanged || hook.state === undefined) {
+    hook.state = factory();
+  }
 
   return hook.state;
 }
@@ -106,24 +120,14 @@ export function useCallback<T extends Function>(callback: T, deps: any[]): T {
 }
 
 export function useRef<T>(initial: T): { current: T } {
-  if (!Globals.wipFiber) {
+  if (!Globals.wipFiber)
     throw new Error("useRef must be used within a component.");
+
+  const hook = updateWorkInProgressHook("REF");
+
+  if (hook.state === undefined) {
+    hook.state = { current: initial };
   }
-
-  const oldHook =
-    Globals.wipFiber.alternate &&
-    Globals.wipFiber.alternate.hooks &&
-    Globals.wipFiber.alternate.hooks[Globals.hookIndex];
-
-  // 如果有旧 hook，直接复用它的 value (即 { current: ... } 对象)
-  // 如果没有，创建一个新的对象
-  const hook: Hook = {
-    tag: "REF",
-    state: oldHook ? oldHook.state : { current: initial },
-  };
-
-  Globals.wipFiber.hooks!.push(hook);
-  Globals.hookIndex++;
 
   return hook.state;
 }

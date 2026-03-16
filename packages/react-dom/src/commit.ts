@@ -101,33 +101,34 @@ function commitEffects(fiber: Fiber | null) {
   commitEffects(fiber.child || null);
   commitEffects(fiber.sibling || null);
 
-  if (fiber.hooks) {
-    fiber.hooks.forEach((hook) => {
-      if (hook.tag === "EFFECT" && hook.hasChanged) {
-        if (hook.cleanup) {
-          hook.cleanup();
-        }
-        const cleanup = hook.callback!();
-        if (typeof cleanup === "function") {
-          hook.cleanup = cleanup;
-        }
+  // ✅ 修改这里：遍历链表
+  let hook = fiber.memoizedState;
+  while (hook) {
+    if (hook.tag === "EFFECT" && hook.hasChanged) {
+      if (hook.cleanup) {
+        hook.cleanup();
       }
-    });
+      const cleanup = hook.callback!();
+      if (typeof cleanup === "function") {
+        hook.cleanup = cleanup;
+      }
+    }
+    hook = hook.next || null;
   }
 }
 
 function cleanupHooks(fiber: Fiber | null) {
   if (!fiber) return;
 
-  if (fiber.hooks) {
-    fiber.hooks.forEach((h) => {
-      if (h.tag === "EFFECT" && h.cleanup) {
-        h.cleanup();
-      }
-    });
+  // ✅ 修改这里：遍历链表
+  let hook = fiber.memoizedState;
+  while (hook) {
+    if (hook.tag === "EFFECT" && hook.cleanup) {
+      hook.cleanup();
+    }
+    hook = hook.next || null;
   }
 
-  // 注意：这里只需要清理 hooks，不需要移除 DOM，因为 DOM 移除逻辑在 commitDeletion 主体里处理
   cleanupHooks(fiber.child || null);
   cleanupHooks(fiber.sibling || null);
 }

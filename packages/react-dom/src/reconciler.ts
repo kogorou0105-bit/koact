@@ -35,9 +35,10 @@ function updateFragmentComponent(fiber: Fiber) {
 
 function updateFunctionComponent(fiber: Fiber) {
   Globals.wipFiber = fiber;
-  Globals.hookIndex = 0;
-  Globals.wipFiber.hooks = [];
-
+  //
+  Globals.workInProgressHook = null;
+  Globals.currentHook = fiber.alternate?.memoizedState || null;
+  fiber.memoizedState = null;
   const fn = fiber.type as Function;
   const children = [fn(fiber.props)];
   reconcileChildren(fiber, children);
@@ -93,7 +94,7 @@ function reconcileChildren(wipFiber: Fiber, elements: any[]) {
         parent: wipFiber,
         alternate: matchedFiber,
         effectTag: "UPDATE",
-        hooks: matchedFiber!.hooks,
+        memoizedState: matchedFiber!.memoizedState,
         key: key,
       };
     } else {
