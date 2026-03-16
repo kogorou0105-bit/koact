@@ -78,6 +78,7 @@ function generateMermaidGraph(fiber) {
       child = child.sibling;
     }
   }
+
   return graph;
 }
 
@@ -382,7 +383,8 @@ window.__KOACT_DEVTOOLS_HOOK__ = {
   },
 };
 
-async function renderMermaid(fiberRoot) {
+async function renderMermaid(data) {
+  const { root, deletions } = data; // 从事件中解构出来
   // 检查库是否加载
   if (!store.isMermaidReady || !window.mermaid) {
     updateStatus("Loading Mermaid library...");
@@ -393,18 +395,33 @@ async function renderMermaid(fiberRoot) {
     classDef placement fill:#d4edda,stroke:#28a745,stroke-width:2px;
     classDef update fill:#fff3cd,stroke:#ffc107,stroke-width:2px;
     classDef deletion fill:#f8d7da,stroke:#dc3545,stroke-width:2px;
-    classDef default fill:#fff,stroke:#333,stroke-width:1px;
   `;
+  let treeGraph = generateMermaidGraph(root);
+  // 2. 遍历 deletions 数组，手动把删除的节点“画”上去
+  deletions.forEach((delFiber) => {
+    const delId = getFiberId(delFiber);
+    const delLabel = getDisplayName(delFiber);
 
-  const graphDefinition = `
-    graph TD
-    ${classDefs}
-    ${generateMermaidGraph(fiberRoot)}
-  `;
+    // 👉 直接读取我们在 diff 阶段塞进去的新父节点
+    const newParent = delFiber.parent;
+
+    if (!newParent) return;
+
+    const parentId = getFiberId(newParent);
+
+    // 生成虚线连接
+    treeGraph += `${parentId} -.-> ${delId}["${delLabel}"]:::deletion\n`;
+  });
+  const graphDefinition = `graph TD\n${classDefs}\n${treeGraph}`;
 
   try {
+    console.log("最终生成的 Mermaid 代码：\n", graphDefinition);
     updateStatus("Rendering...");
-    mermaid.initialize({ startOnLoad: false, theme: "neutral" });
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: "default",
+      securityLevel: "loose",
+    });
 
     // 生成 SVG
     const id = "koact-graph-" + Date.now();

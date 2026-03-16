@@ -121,6 +121,7 @@ function reconcileChildren(wipFiber: Fiber, elements: any[]) {
   // 3. 删除剩余节点
   existingChildren.forEach((fiber) => {
     fiber.effectTag = "DELETION";
+    fiber.parent = wipFiber;
     Globals.deletions.push(fiber);
   });
 }

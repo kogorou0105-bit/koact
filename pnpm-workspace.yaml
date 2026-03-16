@@ -3,3 +3,4 @@ packages:
   - "examples/*"
   - "!examples/_template"
   - "!examples/_template_js"
+  - "!examples/phase1-test"

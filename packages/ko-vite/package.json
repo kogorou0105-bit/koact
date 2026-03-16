@@ -1,0 +1,31 @@
+{
+  "name": "@koact/vite",
+  "version": "1.0.0",
+  "description": "A mini-vite implementation",
+  "type": "module",
+  "main": "src/index.ts",
+  "bin": {
+    "ko-vite": "bin/ko-vite.js"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "connect": "^3.7.0",
+    "es-module-lexer": "^2.0.0",
+    "esbuild": "^0.25.0",
+    "magic-string": "^0.30.21",
+    "picocolors": "^1.1.1",
+    "resolve": "^1.22.11"
+  },
+  "devDependencies": {
+    "@types/connect": "^3.4.38",
+    "@types/node": "^22.13.1",
+    "@types/resolve": "^1.20.6",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}

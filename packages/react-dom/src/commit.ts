@@ -12,6 +12,11 @@ declare global {
 }
 
 export function commitRoot() {
+  // 把 wipRoot 和 deletions 一起传出去
+  KoactEvents.emit("commit", {
+    root: Globals.wipRoot,
+    deletions: [...Globals.deletions], // 浅拷贝，因为 commit 后 deletions 会被清空
+  });
   Globals.deletions.forEach((fiber) => commitDeletion(fiber));
 
   if (Globals.wipRoot && Globals.wipRoot.child) {
@@ -23,7 +28,7 @@ export function commitRoot() {
   Globals.currentRoot = Globals.wipRoot;
   Globals.wipRoot = null;
 
-  KoactEvents.emit("commit", Globals.currentRoot);
+  // KoactEvents.emit("commit", Globals.currentRoot);
 }
 
 function commitWork(fiber?: Fiber) {
