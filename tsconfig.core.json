@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": ["node", "vitest/globals"]
+  },
+  "include": [
+    "packages/react/src/**/*.ts",
+    "packages/react-dom/src/**/*.ts",
+    "vitest.setup.ts"
+  ]
+}

@@ -1,134 +1,261 @@
-// packages/react-dom/src/commit.ts
-import { Fiber } from "./types";
 import { updateDom } from "./dom";
-import { Globals } from "./globals";
-import { KoactEvents } from "./events"; // 引入事件总线
-declare global {
-  interface Window {
-    __KOACT_DEVTOOLS_HOOK__?: {
-      emit: (event: string, data: any) => void;
-    };
+import { KoactEvents } from "./events";
+import type { Fiber, FiberRoot, Hook } from "./types";
+
+function reportError(error: unknown) {
+  if (typeof globalThis.reportError === "function") {
+    globalThis.reportError(error);
+  } else {
+    console.error(error);
   }
 }
 
-export function commitRoot() {
-  // 把 wipRoot 和 deletions 一起传出去
-  KoactEvents.emit("commit", {
-    root: Globals.wipRoot,
-    deletions: [...Globals.deletions], // 浅拷贝，因为 commit 后 deletions 会被清空
+function visitTree(fiber: Fiber | undefined, visitor: (fiber: Fiber) => void) {
+  if (!fiber) return;
+  visitor(fiber);
+  visitTree(fiber.child, visitor);
+  visitTree(fiber.sibling, visitor);
+}
+
+function visitSubtree(fiber: Fiber, visitor: (fiber: Fiber) => void) {
+  visitor(fiber);
+  let child = fiber.child;
+  while (child) {
+    visitSubtree(child, visitor);
+    child = child.sibling;
+  }
+}
+
+function setRef(ref: unknown, value: HTMLElement | Text | null) {
+  try {
+    if (typeof ref === "function") {
+      ref(value);
+    } else if (ref && typeof ref === "object" && "current" in ref) {
+      (ref as { current: HTMLElement | Text | null }).current = value;
+    }
+  } catch (error) {
+    reportError(error);
+  }
+}
+
+function detachDeletedStateAndRefs(fiber: Fiber) {
+  visitSubtree(fiber, (node) => {
+    let hook = node.memoizedState;
+    while (hook) {
+      if (hook.tag === "STATE" && hook.queue) {
+        hook.queue.mounted = false;
+        hook.queue.pending.length = 0;
+        hook.queue.root = null;
+      }
+      hook = hook.next || null;
+    }
+
+    if (node.dom && node.props.ref) setRef(node.props.ref, null);
   });
-  Globals.deletions.forEach((fiber) => commitDeletion(fiber));
-
-  if (Globals.wipRoot && Globals.wipRoot.child) {
-    commitWork(Globals.wipRoot.child);
-  }
-  if (Globals.wipRoot) {
-    commitEffects(Globals.wipRoot);
-  }
-  Globals.currentRoot = Globals.wipRoot;
-  Globals.wipRoot = null;
-
-  // KoactEvents.emit("commit", Globals.currentRoot);
 }
 
-function commitWork(fiber?: Fiber) {
-  if (!fiber) {
+function cleanupDeletedEffects(fiber: Fiber) {
+  visitSubtree(fiber, (node) => {
+    let hook = node.memoizedState;
+    while (hook) {
+      if (hook.tag === "EFFECT" && hook.cleanup) {
+        const cleanup = hook.cleanup;
+        hook.cleanup = undefined;
+        try {
+          cleanup();
+        } catch (error) {
+          reportError(error);
+        }
+      }
+      hook = hook.next || null;
+    }
+  });
+}
+
+function removeDeletedDom(fiber: Fiber) {
+  if (fiber.dom) {
+    try {
+      fiber.dom.parentNode?.removeChild(fiber.dom);
+    } catch (error) {
+      reportError(error);
+    }
     return;
   }
 
-  let domParentFiber = fiber.parent;
-  while (!domParentFiber || !domParentFiber.dom) {
-    domParentFiber = domParentFiber?.parent;
-  }
-  const domParent = domParentFiber.dom;
-
-  if (fiber.effectTag === "PLACEMENT" && fiber.dom != null) {
-    domParent.appendChild(fiber.dom);
-  } else if (fiber.effectTag === "UPDATE" && fiber.dom != null) {
-    updateDom(fiber.dom, fiber.alternate?.props || {}, fiber.props);
-  } else if (fiber.effectTag === "DELETION") {
-    // commitDeletion 已经处理了 DOM 移除
-  }
-  commitRef(fiber);
-  commitWork(fiber.child);
-  commitWork(fiber.sibling);
-}
-
-function commitRef(fiber: Fiber) {
-  if (fiber.props && fiber.props.ref) {
-    fiber.props.ref.current = fiber.dom;
+  let child = fiber.child;
+  while (child) {
+    removeDeletedDom(child);
+    child = child.sibling;
   }
 }
 
-function commitDeletion(fiber: Fiber, domParent?: HTMLElement | Text) {
-  // 1. 自动向上查找最近的 DOM 父节点 (保持原有逻辑)
-  if (!domParent) {
-    let parent = fiber.parent;
-    while (parent && !parent.dom) {
-      parent = parent.parent;
-    }
-    if (parent && parent.dom) domParent = parent.dom;
-  }
-
-  // 2. 处理 DOM 移除
-  if (fiber.dom && domParent) {
-    // 情况 A: 当前 Fiber 有真实 DOM (如 div, p)
-    // 直接移除即可，浏览器会自动移除其下的所有子元素视觉表现
-    domParent.removeChild(fiber.dom);
-  } else {
-    // 情况 B: 当前 Fiber 没有 DOM (如 Fragment, 函数组件)
-    // 它的“本体”就是它所有的子节点。
-    // 我们必须遍历它的 children 链表，递归调用 commitDeletion，
-    // 确保它的每一个子节点（及其子树中的 DOM）都被移除。
-
-    let child = fiber.child;
-    while (child) {
-      commitDeletion(child, domParent);
-      child = child.sibling;
-    }
-  }
-
-  // 3. 清理 Hooks
-  // 注意：这里的 cleanupHooks 也会递归清理子树的 hooks。
-  // 虽然在上面的 while 循环中 commitDeletion(child) 也会触发子节点的 cleanupHooks，
-  // 导致一定的重复遍历，但在简单实现中这是为了确保当前 fiber 自身的 hooks (如果是函数组件) 能被清理。
-  cleanupHooks(fiber);
+function commitDeletion(fiber: Fiber) {
+  detachDeletedStateAndRefs(fiber);
+  removeDeletedDom(fiber);
+  cleanupDeletedEffects(fiber);
 }
 
-function commitEffects(fiber: Fiber | null) {
-  if (!fiber) return;
-
-  commitEffects(fiber.child || null);
-  commitEffects(fiber.sibling || null);
-
-  // ✅ 修改这里：遍历链表
-  let hook = fiber.memoizedState;
-  while (hook) {
-    if (hook.tag === "EFFECT" && hook.hasChanged) {
-      if (hook.cleanup) {
-        hook.cleanup();
-      }
-      const cleanup = hook.callback!();
-      if (typeof cleanup === "function") {
-        hook.cleanup = cleanup;
+function commitDomUpdates(fiber?: Fiber) {
+  visitTree(fiber, (node) => {
+    if (node.dom && node.alternate && typeof node.type === "string") {
+      try {
+        updateDom(node.dom, node.alternate.props, node.props);
+      } catch (error) {
+        reportError(error);
       }
     }
-    hook = hook.next || null;
+  });
+}
+
+function collectImmediateHostChildren(fiber: Fiber | undefined, result: Fiber[]) {
+  let current = fiber;
+  while (current) {
+    if (current.dom) {
+      result.push(current);
+    } else {
+      collectImmediateHostChildren(current.child, result);
+    }
+    current = current.sibling;
   }
 }
 
-function cleanupHooks(fiber: Fiber | null) {
-  if (!fiber) return;
+function syncHostChildren(parentFiber: Fiber) {
+  if (!parentFiber.dom || parentFiber.type === "TEXT_ELEMENT") return;
 
-  // ✅ 修改这里：遍历链表
-  let hook = fiber.memoizedState;
-  while (hook) {
-    if (hook.tag === "EFFECT" && hook.cleanup) {
-      hook.cleanup();
+  const hostChildren: Fiber[] = [];
+  collectImmediateHostChildren(parentFiber.child, hostChildren);
+
+  const parentDom = parentFiber.dom;
+  let currentDomChild = parentDom.firstChild;
+
+  hostChildren.forEach((childFiber) => {
+    const childDom = childFiber.dom!;
+    if (childDom === currentDomChild) {
+      currentDomChild = currentDomChild.nextSibling;
+    } else {
+      try {
+        parentDom.insertBefore(childDom, currentDomChild);
+      } catch (error) {
+        reportError(error);
+      }
     }
-    hook = hook.next || null;
+  });
+
+  while (currentDomChild) {
+    const nextSibling = currentDomChild.nextSibling;
+    try {
+      parentDom.removeChild(currentDomChild);
+    } catch (error) {
+      reportError(error);
+    }
+    currentDomChild = nextSibling;
   }
 
-  cleanupHooks(fiber.child || null);
-  cleanupHooks(fiber.sibling || null);
+  hostChildren.forEach(syncHostChildren);
+}
+
+function commitStateQueues(fiber?: Fiber) {
+  visitTree(fiber, (node) => {
+    let hook = node.memoizedState;
+    while (hook) {
+      if (hook.tag === "STATE" && hook.queue) {
+        const processedCount = hook.processedCount || 0;
+        if (processedCount > 0) hook.queue.pending.splice(0, processedCount);
+        hook.processedCount = 0;
+        hook.queue.mounted = true;
+      }
+      hook = hook.next || null;
+    }
+  });
+}
+
+function detachChangedRefs(fiber?: Fiber) {
+  visitTree(fiber, (node) => {
+    if (!node.dom) return;
+
+    const previousRef = node.alternate?.props.ref;
+    const nextRef = node.props.ref;
+    if (previousRef && previousRef !== nextRef) setRef(previousRef, null);
+  });
+}
+
+function attachChangedRefs(fiber?: Fiber) {
+  visitTree(fiber, (node) => {
+    if (!node.dom) return;
+
+    const previousRef = node.alternate?.props.ref;
+    const nextRef = node.props.ref;
+    if (nextRef && previousRef !== nextRef) setRef(nextRef, node.dom);
+  });
+}
+
+function destroyChangedEffect(hook: Hook) {
+  if (!hook.hasChanged || !hook.callback) return;
+
+  if (hook.cleanup) {
+    const cleanup = hook.cleanup;
+    hook.cleanup = undefined;
+    try {
+      cleanup();
+    } catch (error) {
+      reportError(error);
+    }
+  }
+}
+
+function createChangedEffect(hook: Hook) {
+  if (!hook.hasChanged || !hook.callback) return;
+
+  try {
+    const cleanup = hook.callback();
+    hook.cleanup = typeof cleanup === "function" ? cleanup : undefined;
+  } catch (error) {
+    reportError(error);
+  }
+  hook.hasChanged = false;
+}
+
+function visitEffects(fiber: Fiber | undefined, visitor: (hook: Hook) => void) {
+  if (!fiber) return;
+
+  visitEffects(fiber.child, visitor);
+  let hook = fiber.memoizedState;
+  while (hook) {
+    if (hook.tag === "EFFECT") visitor(hook);
+    hook = hook.next || null;
+  }
+  visitEffects(fiber.sibling, visitor);
+}
+
+function detachAlternates(fiber?: Fiber) {
+  visitTree(fiber, (node) => {
+    node.alternate = null;
+  });
+}
+
+export function commitRoot(root: FiberRoot) {
+  const finishedWork = root.workInProgress;
+  if (!finishedWork) return;
+
+  const deletions = [...root.deletions];
+  deletions.forEach(commitDeletion);
+  commitDomUpdates(finishedWork.child);
+  syncHostChildren(finishedWork);
+
+  root.current = finishedWork;
+  commitStateQueues(finishedWork.child);
+  detachChangedRefs(finishedWork.child);
+  attachChangedRefs(finishedWork.child);
+  visitEffects(finishedWork.child, destroyChangedEffect);
+  visitEffects(finishedWork.child, createChangedEffect);
+  detachAlternates(finishedWork);
+
+  root.workInProgress = null;
+  root.nextUnitOfWork = null;
+  root.deletions = [];
+
+  KoactEvents.emit("commit", {
+    root: finishedWork,
+    deletions,
+  });
 }

@@ -2,10 +2,31 @@
 import { IGNORABLE_CHILDREN } from "./constant/constant";
 import { resolveDispatcher, SharedInternals } from "./dispatcher";
 
+export type { Dispatcher } from "./dispatcher";
+
 export const Fragment = Symbol.for("koact.fragment");
 
+export type Key = string | number;
+export type DependencyList = readonly unknown[];
+export type SetStateAction<T> = T | ((previousState: T) => T);
+export type Dispatch<T> = (value: T) => void;
+export type RefObject<T> = { current: T };
+export type Ref<T> = RefObject<T | null> | ((value: T | null) => void);
+export type FunctionComponent<P = Record<string, unknown>> = (
+  props: P & { children?: ReactNode[] },
+) => ReactNode;
+export type ElementType = string | FunctionComponent<any> | symbol;
+export type ReactNode =
+  | ReactElement
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | ReactNode[];
+
 export interface ReactElement {
-  type: string | Function | symbol;
+  type: ElementType;
   props: {
     children: ReactElement[];
     [key: string]: any;
@@ -13,23 +34,15 @@ export interface ReactElement {
 }
 
 export function createElement(
-  type: string | Function,
+  type: ElementType,
   props: any,
-  ...children: any[]
+  ...children: ReactNode[]
 ): ReactElement {
   return {
     type,
     props: {
-      ...props,
-      children: children
-        .flat(Infinity)
-        .filter((child) => !IGNORABLE_CHILDREN.includes(child))
-        .map((child) => {
-          if (typeof child === "object") {
-            return child;
-          }
-          return createTextElement(child);
-        }),
+      ...(props || {}),
+      children: normalizeChildren(children),
     },
   };
 }
@@ -44,21 +57,62 @@ function createTextElement(text: string | number): ReactElement {
   };
 }
 
-// ========== 新增 Hooks 导出  ==========
+export function isValidElement(value: unknown): value is ReactElement {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "type" in value &&
+    "props" in value
+  );
+}
 
-export function useState<T>(initial: T) {
+export function normalizeChildren(value: ReactNode): ReactElement[] {
+  const normalized: ReactElement[] = [];
+
+  const append = (child: ReactNode) => {
+    if (Array.isArray(child)) {
+      child.forEach(append);
+      return;
+    }
+
+    if (IGNORABLE_CHILDREN.includes(child as never)) return;
+
+    if (typeof child === "string" || typeof child === "number") {
+      normalized.push(createTextElement(child));
+      return;
+    }
+
+    if (isValidElement(child)) {
+      normalized.push(child);
+      return;
+    }
+
+    throw new TypeError(`Unsupported Koact child: ${String(child)}`);
+  };
+
+  append(value);
+  return normalized;
+}
+
+export function useState<T>(initial: T | (() => T)) {
   return resolveDispatcher().useState(initial);
 }
 
-export function useEffect(callback: () => void | (() => void), deps?: any[]) {
+export function useEffect(
+  callback: () => void | (() => void),
+  deps?: DependencyList,
+) {
   return resolveDispatcher().useEffect(callback, deps);
 }
 
-export function useMemo<T>(factory: () => T, deps: any[]) {
+export function useMemo<T>(factory: () => T, deps: DependencyList) {
   return resolveDispatcher().useMemo(factory, deps);
 }
 
-export function useCallback<T extends Function>(callback: T, deps: any[]) {
+export function useCallback<T extends (...args: any[]) => unknown>(
+  callback: T,
+  deps: DependencyList,
+) {
   return resolveDispatcher().useCallback(callback, deps);
 }
 
@@ -68,6 +122,7 @@ export function useRef<T>(initial: T) {
 
 export const __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED = {
   SharedInternals,
+  normalizeChildren,
 };
 
 declare global {

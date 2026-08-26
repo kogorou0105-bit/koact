@@ -1,5 +1,8 @@
 import React from "@koact/react";
-import type { ChangeEvent } from "react";
+import type {
+  InputEvent as ReactInputEvent,
+  TransitionEvent as ReactTransitionEvent,
+} from "react";
 import { useState, useEffect } from "@koact/react";
 
 /** @jsx React.createElement */
@@ -19,10 +22,10 @@ export default function App() {
   const [inputText, setInputText] = useState("");
   const [willDeleteId, setWillDeleteId] = useState<number[]>([]);
   // 处理输入框变化
-  const handleInput = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleInput = (e: ReactInputEvent<HTMLInputElement>) => {
     // 这里虽然不依赖旧状态，但保持一致性也可以写成函数
     // e.target.value 是原生 DOM 属性
-    const val = e.target.value;
+    const val = e.currentTarget.value;
     setInputText(() => val);
   };
 
@@ -83,7 +86,7 @@ export default function App() {
     });
   };
 
-  const handleTransitionEnd = (e) => {
+  const handleTransitionEnd = (e: ReactTransitionEvent<HTMLLIElement>) => {
     if (e.propertyName !== "opacity") return;
 
     setTodos((prevTodos) => {

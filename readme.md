@@ -1,6 +1,6 @@
 # Koact
 
-Koact 是一个为了深入理解 React 原理而从 Didact 实现的 Mini-React 框架。简易实现了 React 16+ 的 Fiber 架构、Concurrent Mode（并发模式）以及 Hooks 系统。
+Koact 是一个为了深入理解 React 原理而从 Didact 实现的 Mini-React 框架。它实现了 Fiber 架构、基于空闲时间的协作式调度以及 Hooks 系统。
 
 通过 Koact，你可以直观地看到 React 内部是如何通过链表（Fiber）管理组件状态，以及如何通过时间切片（Time Slicing）来保持页面流畅的。
 
@@ -12,7 +12,7 @@ The project is for learning purposes only. 该项目仅以学习为目的。
 - [x] **Virtual DOM**: 虚拟 DOM 节点的创建与管理
 - [x] **Functional Components**: 支持函数组件
 - [x] **Fiber Architecture**: 基于链表的 Fiber 架构，支持任务中断与恢复
-- [x] **Concurrent Mode**: 利用 `requestIdleCallback` 实现时间切片，不阻塞主线程
+- [x] **Cooperative Scheduling**: 利用空闲回调和降级调度实现可中断的渲染阶段
 - [x] **Reconciliation**:
   - [x] Diff 算法
   - [x] Keyed Diff (基于 Map 的节点复用)
@@ -27,6 +27,36 @@ The project is for learning purposes only. 该项目仅以学习为目的。
   - [x] Event-driven pattern. (事件驱动，关键节点设置探针向外暴露关键数据，并将数据处理交给外部插件)
 - [x] **Plugin**:
   - [x] Fiber Tree visulization (Fiber树的可视化)
+
+## 使用方式
+
+```tsx
+import React from "@koact/react";
+import { createRoot } from "@koact/react-dom";
+
+const root = createRoot(document.getElementById("root")!);
+root.render(<App />);
+
+// 卸载时会清理 effects 和 refs
+root.unmount();
+```
+
+原有的 `ReactDOM.render(element, container)` 仍然保留，并与 `createRoot`
+共享同一套多 Root 调度实现。
+
+```bash
+pnpm check:core
+pnpm --filter todo-app build
+```
+
+## 当前边界
+
+Koact 目前面向现代浏览器 ESM 环境。`react-dom` 可以在没有 DOM 的环境中安全导入，
+但尚未提供服务端渲染器。当前调度模型不包含 React 的 Lanes、Suspense、Transitions
+或完整 Concurrent Rendering 语义。
+
+后续的 UpdateQueue、自动批处理、Lanes、`startTransition` 和 Fiber Bailout 设计见
+[现代更新机制实施计划](./docs/modern-react-roadmap.md)。
 
 ## 📦 架构设计 (Architecture)
 

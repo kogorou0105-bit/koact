@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "main": "index.js",
+  "types": "index.d.ts",
   "description": "Koact 调试工具 Vite 插件",
   "peerDependencies": {
     "vite": "^6.0.0 || ^7.0.0"

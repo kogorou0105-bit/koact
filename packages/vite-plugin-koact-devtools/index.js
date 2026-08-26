@@ -11,6 +11,7 @@ export default function koactDevTools() {
 
   return {
     name: "vite-plugin-koact-devtools",
+    apply: "serve",
     transformIndexHtml(html) {
       return {
         html,

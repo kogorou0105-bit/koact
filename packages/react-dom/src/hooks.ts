@@ -1,133 +1,189 @@
-// packages/react-dom/src/hooks.ts
-import { Globals } from "./globals";
-import { Hook } from "./types";
+import type {
+  DependencyList,
+  Dispatch,
+  Dispatcher,
+  RefObject,
+  SetStateAction,
+} from "@koact/react";
+import type { Fiber, FiberRoot, Hook, StateQueue } from "./types";
+
+interface HookRenderContext {
+  root: FiberRoot;
+  fiber: Fiber;
+  currentHook: Hook | null;
+  workInProgressHook: Hook | null;
+  isMount: boolean;
+}
+
+let currentContext: HookRenderContext | null = null;
+
+function requireContext() {
+  if (!currentContext) {
+    throw new Error("Hooks can only be used while rendering a component.");
+  }
+  return currentContext;
+}
+
+export function prepareToUseHooks(root: FiberRoot, fiber: Fiber) {
+  fiber.memoizedState = null;
+  currentContext = {
+    root,
+    fiber,
+    currentHook: fiber.alternate?.memoizedState || null,
+    workInProgressHook: null,
+    isMount: !fiber.alternate,
+  };
+}
+
+export function finishHooks() {
+  const context = requireContext();
+  if (context.currentHook) {
+    throw new Error("Rendered fewer hooks than during the previous render.");
+  }
+}
+
+export function resetHooksAfterRender() {
+  currentContext = null;
+}
 
 function updateWorkInProgressHook(
   tag: "STATE" | "EFFECT" | "MEMO" | "REF",
 ): Hook {
+  const context = requireContext();
   let hook: Hook;
 
-  if (Globals.currentHook) {
-    // 【更新阶段】：从老链表克隆 Hook
+  if (context.currentHook) {
+    if (context.currentHook.tag !== tag) {
+      throw new Error(
+        `Hook order changed: expected ${context.currentHook.tag}, received ${tag}.`,
+      );
+    }
+
     hook = {
-      tag: Globals.currentHook.tag,
-      state: Globals.currentHook.state,
-      queue: Globals.currentHook.queue,
-      callback: Globals.currentHook.callback,
-      deps: Globals.currentHook.deps,
-      cleanup: Globals.currentHook.cleanup,
-      hasChanged: Globals.currentHook.hasChanged,
-      next: null, // 断开老链接
-    };
-    // 指针往后走一步
-    Globals.currentHook = Globals.currentHook.next || null;
-  } else {
-    // 【挂载阶段】：新建空白 Hook
-    hook = {
-      tag,
-      queue: [],
+      ...context.currentHook,
       next: null,
     };
-  }
-
-  // 将构造好的 hook 挂载到当前 Fiber 的链表上
-  if (Globals.workInProgressHook === null) {
-    Globals.wipFiber!.memoizedState = Globals.workInProgressHook = hook;
+    context.currentHook = context.currentHook.next || null;
   } else {
-    Globals.workInProgressHook.next = hook;
-    Globals.workInProgressHook = hook;
+    if (!context.isMount) {
+      throw new Error("Rendered more hooks than during the previous render.");
+    }
+    hook = { tag, next: null };
   }
 
-  return Globals.workInProgressHook;
+  if (!context.workInProgressHook) {
+    context.fiber.memoizedState = hook;
+  } else {
+    context.workInProgressHook.next = hook;
+  }
+  context.workInProgressHook = hook;
+
+  return hook;
 }
 
 export function useState<T>(
-  initial: T,
-): [T, (action: T | ((prevState: T) => T)) => void] {
-  if (!Globals.wipFiber) {
-    throw new Error("useState must be used within a component.");
-  }
+  initial: T | (() => T),
+): [T, Dispatch<SetStateAction<T>>] {
+  const context = requireContext();
   const hook = updateWorkInProgressHook("STATE");
 
-  if (hook.state === undefined) {
-    hook.state = initial;
+  if (!hook.initialized) {
+    hook.state =
+      typeof initial === "function" ? (initial as () => T)() : initial;
+    const queue: StateQueue<T> = {
+      pending: [],
+      dispatch: null,
+      root: context.root,
+      mounted: false,
+    };
+    queue.dispatch = (action) => {
+      if (currentContext) {
+        throw new Error("State updates during render are not supported.");
+      }
+      if (!queue.mounted || !queue.root || queue.root.status !== "active") {
+        return;
+      }
+      queue.pending.push(action);
+      queue.root.schedule();
+    };
+    hook.queue = queue;
+    hook.initialized = true;
   }
 
-  const actions = hook.queue;
-  actions?.forEach((action) => {
-    if (action instanceof Function) {
-      hook.state = action(hook.state);
-    } else {
-      hook.state = action;
-    }
-  });
+  const queue = hook.queue as StateQueue<T>;
+  queue.root = context.root;
+  const processedCount = queue.pending.length;
+  let nextState = hook.state as T;
 
-  hook.queue = []; // 清空处理过的队列
+  for (let index = 0; index < processedCount; index++) {
+    const action = queue.pending[index];
+    nextState =
+      typeof action === "function"
+        ? (action as (previousState: T) => T)(nextState)
+        : action;
+  }
 
-  const setState = (action: any) => {
-    hook.queue!.push(action);
-    if (Globals.currentRoot) {
-      Globals.wipRoot = {
-        dom: Globals.currentRoot.dom,
-        props: Globals.currentRoot.props,
-        alternate: Globals.currentRoot,
-      };
-      Globals.nextUnitOfWork = Globals.wipRoot;
-      Globals.deletions = [];
-    }
-  };
-
-  return [hook.state, setState];
+  hook.state = nextState;
+  hook.processedCount = processedCount;
+  return [nextState, queue.dispatch as Dispatch<SetStateAction<T>>];
 }
 
-function hasDepsChanged(prevDeps?: any[], nextDeps?: any[]) {
-  if (!prevDeps || !nextDeps) return true;
-  if (prevDeps.length !== nextDeps.length) return true;
-  return nextDeps.some((dep, i) => dep !== prevDeps[i]);
+function haveDepsChanged(
+  previousDeps?: DependencyList,
+  nextDeps?: DependencyList,
+) {
+  if (!previousDeps || !nextDeps) return true;
+  if (previousDeps.length !== nextDeps.length) return true;
+  return nextDeps.some(
+    (dependency, index) => !Object.is(dependency, previousDeps[index]),
+  );
 }
 
-export function useEffect(callback: () => void | (() => void), deps?: any[]) {
-  if (!Globals.wipFiber)
-    throw new Error("useEffect must be used within a component.");
-
+export function useEffect(
+  callback: () => void | (() => void),
+  deps?: DependencyList,
+) {
   const hook = updateWorkInProgressHook("EFFECT");
-  // 注意：因为上面 clone 了老 hook，此时 hook.deps 就是旧的 deps
-  const hasChanged = hasDepsChanged(hook.deps, deps);
-
+  hook.hasChanged = !hook.initialized || haveDepsChanged(hook.deps, deps);
   hook.callback = callback;
   hook.deps = deps;
-  hook.hasChanged = hasChanged;
+  hook.initialized = true;
 }
 
-export function useMemo<T>(factory: () => T, deps: any[]): T {
-  if (!Globals.wipFiber)
-    throw new Error("useMemo must be used within a component.");
-
+export function useMemo<T>(factory: () => T, deps: DependencyList): T {
   const hook = updateWorkInProgressHook("MEMO");
-  const hasChanged = hasDepsChanged(hook.deps, deps);
 
-  hook.deps = deps;
-  if (hasChanged || hook.state === undefined) {
+  if (!hook.initialized || haveDepsChanged(hook.deps, deps)) {
     hook.state = factory();
   }
+  hook.deps = deps;
+  hook.initialized = true;
 
-  return hook.state;
+  return hook.state as T;
 }
 
-export function useCallback<T extends Function>(callback: T, deps: any[]): T {
-  // useCallback 其实就是 useMemo 的语法糖
+export function useCallback<T extends (...args: any[]) => unknown>(
+  callback: T,
+  deps: DependencyList,
+): T {
   return useMemo(() => callback, deps);
 }
 
-export function useRef<T>(initial: T): { current: T } {
-  if (!Globals.wipFiber)
-    throw new Error("useRef must be used within a component.");
-
+export function useRef<T>(initial: T): RefObject<T> {
   const hook = updateWorkInProgressHook("REF");
 
-  if (hook.state === undefined) {
+  if (!hook.initialized) {
     hook.state = { current: initial };
+    hook.initialized = true;
   }
 
-  return hook.state;
+  return hook.state as RefObject<T>;
 }
+
+export const HooksDispatcher: Dispatcher = {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+};

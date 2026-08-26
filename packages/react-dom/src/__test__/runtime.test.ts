@@ -1,0 +1,404 @@
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+import React, { useEffect, useMemo, useRef, useState } from "@koact/react";
+import ReactDOM, { createRoot } from "../index";
+import { __resetSchedulerForTests } from "../scheduler";
+
+const h = React.createElement;
+
+async function flushWork() {
+  await vi.runAllTimersAsync();
+}
+
+describe("Koact runtime", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    __resetSchedulerForTests();
+    document.body.innerHTML = "";
+  });
+
+  afterEach(() => {
+    __resetSchedulerForTests();
+    vi.clearAllTimers();
+    vi.useRealTimers();
+  });
+
+  it("keeps roots and their state updates isolated", async () => {
+    const firstContainer = document.createElement("div");
+    const secondContainer = document.createElement("div");
+    let updateFirst!: (value: number | ((previous: number) => number)) => void;
+    let updateSecond!: (value: number | ((previous: number) => number)) => void;
+
+    function Counter(props: { name: string }) {
+      const [count, setCount] = useState(0);
+      if (props.name === "first") updateFirst = setCount;
+      else updateSecond = setCount;
+      return h("span", null, `${props.name}:${count}`);
+    }
+
+    ReactDOM.render(h(Counter, { name: "first" }), firstContainer);
+    ReactDOM.render(h(Counter, { name: "second" }), secondContainer);
+    await flushWork();
+
+    updateFirst((count) => count + 1);
+    await flushWork();
+    expect(firstContainer.textContent).toBe("first:1");
+    expect(secondContainer.textContent).toBe("second:0");
+
+    updateSecond(4);
+    await flushWork();
+    expect(firstContainer.textContent).toBe("first:1");
+    expect(secondContainer.textContent).toBe("second:4");
+  });
+
+  it("keeps the first state setter valid across later renders", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    let firstSetter:
+      | ((value: number | ((previous: number) => number)) => void)
+      | undefined;
+
+    function Counter() {
+      const [count, setCount] = useState(0);
+      firstSetter ||= setCount;
+      return h("span", null, count);
+    }
+
+    root.render(h(Counter, null));
+    await flushWork();
+    firstSetter!((count) => count + 1);
+    await flushWork();
+    firstSetter!((count) => count + 1);
+    await flushWork();
+
+    expect(container.textContent).toBe("2");
+  });
+
+  it("preserves intentionally undefined state and memo values", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const factory = vi.fn(() => undefined);
+    let setValue!: (value: string | undefined) => void;
+
+    function Values() {
+      const [value, updateValue] = useState<string | undefined>("initial");
+      setValue = updateValue;
+      useMemo(factory, []);
+      return h("span", null, value ?? "missing");
+    }
+
+    root.render(h(Values, null));
+    await flushWork();
+    setValue(undefined);
+    await flushWork();
+
+    expect(container.textContent).toBe("missing");
+    expect(factory).toHaveBeenCalledTimes(1);
+  });
+
+  it("reorders keyed DOM nodes without replacing them", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const list = (keys: string[]) =>
+      h(
+        "ul",
+        null,
+        keys.map((key) => h("li", { key, "data-key": key }, key)),
+      );
+
+    root.render(list(["a", "b", "c"]));
+    await flushWork();
+    const originalNodes = new Map(
+      Array.from(container.querySelectorAll("li")).map((node) => [
+        node.dataset.key,
+        node,
+      ]),
+    );
+
+    root.render(list(["c", "a", "b"]));
+    await flushWork();
+    const reorderedNodes = Array.from(container.querySelectorAll("li"));
+
+    expect(reorderedNodes.map((node) => node.dataset.key)).toEqual([
+      "c",
+      "a",
+      "b",
+    ]);
+    reorderedNodes.forEach((node) => {
+      expect(node).toBe(originalNodes.get(node.dataset.key));
+    });
+  });
+
+  it("reorders keyed components that return multiple host nodes", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+
+    function Pair(props: { id: string }) {
+      return [
+        h("span", { "data-id": `${props.id}-1` }, `${props.id}1`),
+        h("span", { "data-id": `${props.id}-2` }, `${props.id}2`),
+      ];
+    }
+
+    const pairs = (keys: string[]) =>
+      h(
+        "div",
+        null,
+        keys.map((key) => h(Pair, { key, id: key })),
+      );
+
+    root.render(pairs(["a", "b"]));
+    await flushWork();
+    const firstA = container.querySelector('[data-id="a-1"]');
+
+    root.render(pairs(["b", "a"]));
+    await flushWork();
+
+    expect(
+      Array.from(container.querySelectorAll("span"), (node) => node.textContent),
+    ).toEqual(["b1", "b2", "a1", "a2"]);
+    expect(container.querySelector('[data-id="a-1"]')).toBe(firstA);
+  });
+
+  it("normalizes component arrays, text and empty output", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+
+    function Content(props: { visible: boolean }) {
+      return props.visible ? ["value:", [0, null, false]] : null;
+    }
+
+    root.render(h(Content, { visible: true }));
+    await flushWork();
+    expect(container.textContent).toBe("value:0");
+
+    root.render(h(Content, { visible: false }));
+    await flushWork();
+    expect(container.textContent).toBe("");
+  });
+
+  it("cleans only the deleted subtree and only once", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const cleanupA = vi.fn();
+    const cleanupB = vi.fn();
+
+    function Item(props: { id: string }) {
+      useEffect(
+        () => () => {
+          if (props.id === "a") cleanupA();
+          else cleanupB();
+        },
+        [],
+      );
+      return h("span", null, props.id);
+    }
+
+    const items = (keys: string[]) =>
+      h(
+        "div",
+        null,
+        keys.map((key) => h(Item, { key, id: key })),
+      );
+
+    root.render(items(["a", "b"]));
+    await flushWork();
+    root.render(items(["b"]));
+    await flushWork();
+
+    expect(cleanupA).toHaveBeenCalledTimes(1);
+    expect(cleanupB).not.toHaveBeenCalled();
+
+    root.unmount();
+    await flushWork();
+    expect(cleanupA).toHaveBeenCalledTimes(1);
+    expect(cleanupB).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not reuse an obsolete effect cleanup", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const cleanup = vi.fn();
+
+    function Effect(props: { version: number }) {
+      useEffect(() => {
+        if (props.version === 1) return cleanup;
+      }, [props.version]);
+      return h("span", null, props.version);
+    }
+
+    root.render(h(Effect, { version: 1 }));
+    await flushWork();
+    root.render(h(Effect, { version: 2 }));
+    await flushWork();
+    root.unmount();
+    await flushWork();
+
+    expect(cleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it("finishes an unmount requested from an effect", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const cleanup = vi.fn();
+
+    function App() {
+      useEffect(() => {
+        root.unmount();
+        return cleanup;
+      }, []);
+      return h("span", null, "temporary");
+    }
+
+    root.render(h(App, null));
+    await flushWork();
+
+    expect(container.textContent).toBe("");
+    expect(cleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it("detaches all old refs before attaching new refs", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const sharedRef = { current: null as HTMLDivElement | null };
+
+    root.render(
+      h(
+        "section",
+        null,
+        h("div", { key: "a", ref: sharedRef, "data-key": "a" }),
+        h("div", { key: "b", "data-key": "b" }),
+      ),
+    );
+    await flushWork();
+
+    root.render(
+      h(
+        "section",
+        null,
+        h("div", { key: "b", ref: sharedRef, "data-key": "b" }),
+        h("div", { key: "a", "data-key": "a" }),
+      ),
+    );
+    await flushWork();
+
+    expect(sharedRef.current?.dataset.key).toBe("b");
+  });
+
+  it("clears object refs when a root unmounts", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const ref = { current: null as HTMLInputElement | null };
+
+    root.render(h("input", { ref }));
+    await flushWork();
+    expect(ref.current).toBe(container.firstElementChild);
+
+    root.unmount();
+    await flushWork();
+    expect(ref.current).toBeNull();
+  });
+
+  it("ignores stale setters after unmount", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    let setCount!: (value: number) => void;
+
+    function Counter() {
+      const [count, updateCount] = useState(0);
+      setCount = updateCount;
+      return h("span", null, count);
+    }
+
+    root.render(h(Counter, null));
+    await flushWork();
+    root.unmount();
+    await flushWork();
+
+    setCount(2);
+    await flushWork();
+    expect(container.textContent).toBe("");
+    expect(() => root.render(h(Counter, null))).toThrow("unmounted");
+  });
+
+  it("detaches refs and removes stale styles and attributes", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+
+    function Box(props: { compact: boolean }) {
+      const ref = useRef<HTMLDivElement | null>(null);
+      return h(
+        "div",
+        {
+          ref,
+          "data-active": props.compact ? null : "yes",
+          style: props.compact
+            ? { color: "blue" }
+            : { color: "red", backgroundColor: "black" },
+        },
+        ref.current ? "updated" : "mounted",
+      );
+    }
+
+    root.render(h(Box, { compact: false }));
+    await flushWork();
+    const node = container.firstElementChild as HTMLDivElement;
+    expect(node.style.backgroundColor).toBe("black");
+    expect(node.dataset.active).toBe("yes");
+
+    root.render(h(Box, { compact: true }));
+    await flushWork();
+    expect(container.firstElementChild).toBe(node);
+    expect(node.style.color).toBe("blue");
+    expect(node.style.backgroundColor).toBe("");
+    expect(node.hasAttribute("data-active")).toBe(false);
+  });
+
+  it("keeps hooks invalid outside component rendering", () => {
+    expect(() => useState(0)).toThrow("Invalid hook call");
+  });
+
+  it("falls back when requestIdleCallback is unavailable", async () => {
+    const requestIdleCallback = globalThis.requestIdleCallback;
+    const cancelIdleCallback = globalThis.cancelIdleCallback;
+    Reflect.deleteProperty(globalThis, "requestIdleCallback");
+    Reflect.deleteProperty(globalThis, "cancelIdleCallback");
+
+    try {
+      const container = document.createElement("div");
+      ReactDOM.render(h("span", null, "fallback"), container);
+      await flushWork();
+      expect(container.textContent).toBe("fallback");
+    } finally {
+      globalThis.requestIdleCallback = requestIdleCallback;
+      globalThis.cancelIdleCallback = cancelIdleCallback;
+    }
+  });
+
+  it("isolates a failed root from other scheduled roots", async () => {
+    const brokenContainer = document.createElement("div");
+    const healthyContainer = document.createElement("div");
+    const previousReportError = globalThis.reportError;
+    const reportError = vi.fn();
+    globalThis.reportError = reportError;
+
+    try {
+      ReactDOM.render({ invalid: true } as never, brokenContainer);
+      ReactDOM.render(h("span", null, "healthy"), healthyContainer);
+      await flushWork();
+
+      expect(reportError).toHaveBeenCalledTimes(1);
+      expect(brokenContainer.textContent).toBe("");
+      expect(healthyContainer.textContent).toBe("healthy");
+    } finally {
+      if (previousReportError) globalThis.reportError = previousReportError;
+      else Reflect.deleteProperty(globalThis, "reportError");
+    }
+  });
+});

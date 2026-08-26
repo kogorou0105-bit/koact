@@ -1,128 +1,170 @@
-// packages/react-dom/src/reconciler.ts
-import { Fiber } from "./types";
+import {
+  Fragment,
+  __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED,
+  type FunctionComponent,
+  type Key,
+  type ReactElement,
+  type ReactNode,
+} from "@koact/react";
 import { createDom } from "./dom";
-import { Globals } from "./globals";
-import { Fragment } from "@koact/react";
+import {
+  finishHooks,
+  HooksDispatcher,
+  prepareToUseHooks,
+  resetHooksAfterRender,
+} from "./hooks";
+import type { Fiber, FiberRoot } from "./types";
 
-export function performUnitOfWork(fiber: Fiber): Fiber | null {
-  const isFunctionComponent = fiber.type instanceof Function;
-  const isFragment = fiber.type === Fragment;
-  if (isFunctionComponent) {
-    updateFunctionComponent(fiber);
-  } else if (isFragment) {
-    updateFragmentComponent(fiber);
+const { SharedInternals, normalizeChildren } =
+  __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+
+export function performUnitOfWork(
+  root: FiberRoot,
+  fiber: Fiber,
+): Fiber | null {
+  if (typeof fiber.type === "function") {
+    updateFunctionComponent(root, fiber);
+  } else if (fiber.type === Fragment) {
+    reconcileChildren(root, fiber, fiber.props.children);
   } else {
-    updateHostComponent(fiber);
+    updateHostComponent(root, fiber);
   }
 
-  if (fiber.child) {
-    return fiber.child;
-  }
+  if (fiber.child) return fiber.child;
+
   let nextFiber: Fiber | undefined = fiber;
   while (nextFiber) {
-    if (nextFiber.sibling) {
-      return nextFiber.sibling;
-    }
+    if (nextFiber.sibling) return nextFiber.sibling;
     nextFiber = nextFiber.parent;
   }
   return null;
 }
 
-function updateFragmentComponent(fiber: Fiber) {
-  // Fragment 只需要处理子节点，本身不产生 DOM，也不运行 Hook
-  reconcileChildren(fiber, fiber.props.children);
-}
+function updateFunctionComponent(root: FiberRoot, fiber: Fiber) {
+  prepareToUseHooks(root, fiber);
+  const previousDispatcher = SharedInternals.currentDispatcher;
+  SharedInternals.currentDispatcher = HooksDispatcher;
 
-function updateFunctionComponent(fiber: Fiber) {
-  Globals.wipFiber = fiber;
-  //
-  Globals.workInProgressHook = null;
-  Globals.currentHook = fiber.alternate?.memoizedState || null;
-  fiber.memoizedState = null;
-  const fn = fiber.type as Function;
-  const children = [fn(fiber.props)];
-  reconcileChildren(fiber, children);
-}
-
-function updateHostComponent(fiber: Fiber) {
-  if (!fiber.dom) {
-    fiber.dom = createDom(fiber);
-  }
-  reconcileChildren(fiber, fiber.props.children);
-}
-
-const getKey = (el: any, index: number) => {
-  return el?.props?.key !== undefined ? el.props.key : index;
-};
-
-function reconcileChildren(wipFiber: Fiber, elements: any[]) {
-  let index = 0;
-  let oldFiber = wipFiber.alternate?.child;
-  let prevSibling: Fiber | null = null;
-
-  const flatElements = elements.flat(Infinity);
-
-  // 1. 构建旧节点的 Map (Key -> Fiber)
-  const existingChildren = new Map<string | number, Fiber>();
-  let tempFiber = oldFiber;
-  let i = 0;
-  while (tempFiber) {
-    const key =
-      tempFiber.key !== undefined && tempFiber.key !== null ? tempFiber.key : i;
-    existingChildren.set(key, tempFiber);
-    tempFiber = tempFiber.sibling;
-    i++;
+  let output: ReactNode;
+  try {
+    const component = fiber.type as FunctionComponent<any>;
+    output = component(fiber.props);
+    finishHooks();
+  } finally {
+    SharedInternals.currentDispatcher = previousDispatcher;
+    resetHooksAfterRender();
   }
 
-  // 2. 遍历新元素，尝试复用
-  while (index < flatElements.length) {
-    const element = flatElements[index];
-    let newFiber: Fiber | undefined = undefined;
+  reconcileChildren(root, fiber, output);
+}
 
-    const key = getKey(element, index);
-    const matchedFiber = existingChildren.get(key);
-    const sameType =
-      matchedFiber && element && element.type === matchedFiber.type;
+function updateHostComponent(root: FiberRoot, fiber: Fiber) {
+  if (!fiber.dom) fiber.dom = createDom(fiber);
+  reconcileChildren(root, fiber, fiber.props.children);
+}
 
-    if (sameType) {
-      // UPDATE: 复用
-      existingChildren.delete(key);
+function getElementKey(element: ReactElement): Key | null {
+  const key = element.props.key;
+  return key === undefined || key === null ? null : key;
+}
+
+function createDeletionFiber(fiber: Fiber, parent: Fiber): Fiber {
+  return {
+    ...fiber,
+    parent,
+    effectTag: "DELETION",
+  };
+}
+
+function reconcileChildren(
+  root: FiberRoot,
+  workInProgressFiber: Fiber,
+  children: ReactNode,
+) {
+  const elements = normalizeChildren(children);
+  const keyedChildren = new Map<Key, Fiber[]>();
+  const unkeyedChildren = new Map<number, Fiber>();
+  const remainingChildren = new Set<Fiber>();
+
+  let oldFiber = workInProgressFiber.alternate?.child;
+  let oldIndex = 0;
+  while (oldFiber) {
+    oldFiber.index = oldFiber.index ?? oldIndex;
+    remainingChildren.add(oldFiber);
+
+    if (oldFiber.key === null || oldFiber.key === undefined) {
+      unkeyedChildren.set(oldFiber.index, oldFiber);
+    } else {
+      const siblingsWithKey = keyedChildren.get(oldFiber.key) || [];
+      siblingsWithKey.push(oldFiber);
+      keyedChildren.set(oldFiber.key, siblingsWithKey);
+    }
+
+    oldFiber = oldFiber.sibling;
+    oldIndex++;
+  }
+
+  workInProgressFiber.child = undefined;
+  let previousSibling: Fiber | undefined;
+  let lastPlacedIndex = 0;
+
+  elements.forEach((element, index) => {
+    const key = getElementKey(element);
+    let matchedFiber: Fiber | undefined;
+
+    if (key === null) {
+      matchedFiber = unkeyedChildren.get(index);
+      unkeyedChildren.delete(index);
+    } else {
+      const candidates = keyedChildren.get(key);
+      matchedFiber = candidates?.shift();
+      if (candidates?.length === 0) keyedChildren.delete(key);
+    }
+
+    const canReuse = matchedFiber?.type === element.type;
+    let newFiber: Fiber;
+
+    if (canReuse && matchedFiber) {
+      remainingChildren.delete(matchedFiber);
+      const previousIndex = matchedFiber.index ?? index;
+      const needsPlacement = previousIndex < lastPlacedIndex;
+      if (!needsPlacement) lastPlacedIndex = previousIndex;
+
       newFiber = {
-        type: matchedFiber!.type,
+        root,
+        type: matchedFiber.type,
         props: element.props,
-        dom: matchedFiber!.dom,
-        parent: wipFiber,
+        dom: matchedFiber.dom,
+        parent: workInProgressFiber,
         alternate: matchedFiber,
-        effectTag: "UPDATE",
-        memoizedState: matchedFiber!.memoizedState,
-        key: key,
+        effectTag: needsPlacement ? "PLACEMENT" : "UPDATE",
+        key,
+        index,
+        memoizedState: matchedFiber.memoizedState,
       };
     } else {
-      // PLACEMENT: 新建
       newFiber = {
+        root,
         type: element.type,
         props: element.props,
         dom: null,
-        parent: wipFiber,
+        parent: workInProgressFiber,
         alternate: null,
         effectTag: "PLACEMENT",
-        key: key,
+        key,
+        index,
       };
     }
 
-    if (index === 0) {
-      wipFiber.child = newFiber;
-    } else if (prevSibling) {
-      prevSibling.sibling = newFiber;
+    if (!previousSibling) {
+      workInProgressFiber.child = newFiber;
+    } else {
+      previousSibling.sibling = newFiber;
     }
-    prevSibling = newFiber;
-    index++;
-  }
+    previousSibling = newFiber;
+  });
 
-  // 3. 删除剩余节点
-  existingChildren.forEach((fiber) => {
-    fiber.effectTag = "DELETION";
-    fiber.parent = wipFiber;
-    Globals.deletions.push(fiber);
+  remainingChildren.forEach((fiber) => {
+    root.deletions.push(createDeletionFiber(fiber, workInProgressFiber));
   });
 }

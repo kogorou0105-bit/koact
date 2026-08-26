@@ -22,7 +22,13 @@ class EventEmitter {
   emit<K extends keyof EventMap>(event: K, data: EventMap[K]) {
     const callbacks = this.listeners.get(event);
     if (callbacks) {
-      callbacks.forEach((cb) => cb(data));
+      callbacks.forEach((cb) => {
+        try {
+          cb(data);
+        } catch (error) {
+          console.error(`[Koact] ${String(event)} listener failed.`, error);
+        }
+      });
     }
   }
 }

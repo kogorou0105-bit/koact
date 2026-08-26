@@ -1,13 +1,23 @@
 // packages/react/src/dispatcher.ts
-import { ReactElement } from "./index";
+import type {
+  DependencyList,
+  Dispatch,
+  RefObject,
+  SetStateAction,
+} from "./index";
 
 export interface Dispatcher {
-  useState<T>(initial: T): [T, (action: T | ((prevState: T) => T)) => void];
-  useEffect(callback: () => void | (() => void), deps?: any[]): void;
-  useLayoutEffect?(callback: () => void | (() => void), deps?: any[]): void; //以此类推
-  useMemo<T>(factory: () => T, deps: any[]): T;
-  useCallback<T extends Function>(callback: T, deps: any[]): T;
-  useRef<T>(initial: T): { current: T };
+  useState<T>(initial: T | (() => T)): [T, Dispatch<SetStateAction<T>>];
+  useEffect(
+    callback: () => void | (() => void),
+    deps?: DependencyList,
+  ): void;
+  useMemo<T>(factory: () => T, deps: DependencyList): T;
+  useCallback<T extends (...args: any[]) => unknown>(
+    callback: T,
+    deps: DependencyList,
+  ): T;
+  useRef<T>(initial: T): RefObject<T>;
 }
 
 export const SharedInternals = {

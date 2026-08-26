@@ -1,21 +1,49 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "./hooks";
-import { render } from "./scheduler";
-import { __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED } from "@koact/react";
+import type { ReactNode } from "@koact/react";
+import type { FiberRoot } from "./types";
+import {
+  getOrCreateRoot,
+  unmountContainer,
+  updateContainer,
+} from "./scheduler";
 import { initDevTools } from "./devTools";
 
 initDevTools();
-const HooksDispatcher = {
-  useState,
-  useEffect,
-  useMemo,
-  useCallback,
-  useRef,
-};
-__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.SharedInternals.currentDispatcher =
-  HooksDispatcher;
+
+export interface Root {
+  render(element: ReactNode): void;
+  unmount(): void;
+}
+
+function assertValidContainer(container: HTMLElement) {
+  if (!container || typeof container.insertBefore !== "function") {
+    throw new TypeError("Koact root container must be a DOM element.");
+  }
+}
+
+function createPublicRoot(internalRoot: FiberRoot): Root {
+  return {
+    render(element) {
+      updateContainer(element, internalRoot);
+    },
+    unmount() {
+      unmountContainer(internalRoot);
+    },
+  };
+}
+
+export function createRoot(container: HTMLElement): Root {
+  assertValidContainer(container);
+  return createPublicRoot(getOrCreateRoot(container));
+}
+
+export function render(element: ReactNode, container: HTMLElement) {
+  assertValidContainer(container);
+  updateContainer(element, getOrCreateRoot(container));
+}
 
 const ReactDOM = {
   render,
+  createRoot,
 };
 
 export default ReactDOM;

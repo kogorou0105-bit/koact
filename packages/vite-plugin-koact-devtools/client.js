@@ -420,7 +420,7 @@ async function renderMermaid(data) {
     mermaid.initialize({
       startOnLoad: false,
       theme: "default",
-      securityLevel: "loose",
+      securityLevel: "strict",
     });
 
     // 生成 SVG

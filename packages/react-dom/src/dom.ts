@@ -1,5 +1,4 @@
-// packages/react-dom/src/dom.ts
-import { Fiber } from "./types";
+import type { Fiber } from "./types";
 
 export function createDom(fiber: Fiber): HTMLElement | Text {
   const dom =
@@ -8,64 +7,138 @@ export function createDom(fiber: Fiber): HTMLElement | Text {
       : document.createElement(fiber.type as string);
 
   updateDom(dom, {}, fiber.props);
-
   return dom;
 }
 
 const isEvent = (key: string) => key.startsWith("on");
 const isProperty = (key: string) =>
-  key !== "children" && key !== "ref" && !isEvent(key);
-const isNew = (prev: any, next: any) => (key: string) =>
-  prev[key] !== next[key];
-const isGone = (prev: any, next: any) => (key: string) => !(key in next);
+  key !== "children" && key !== "key" && key !== "ref" && !isEvent(key);
+
+function getEventConfig(name: string) {
+  const capture = name.endsWith("Capture");
+  const eventName = name.slice(2, capture ? -7 : undefined).toLowerCase();
+  return { capture, eventName };
+}
+
+function setStyleValue(style: CSSStyleDeclaration, name: string, value: unknown) {
+  if (name.startsWith("--")) {
+    if (value === null || value === undefined || value === "") {
+      style.removeProperty(name);
+    } else {
+      style.setProperty(name, String(value));
+    }
+    return;
+  }
+
+  (style as any)[name] = value === null || value === undefined ? "" : value;
+}
+
+function updateStyle(
+  dom: HTMLElement,
+  previousStyle: unknown,
+  nextStyle: unknown,
+) {
+  if (typeof nextStyle === "string") {
+    dom.style.cssText = nextStyle;
+    return;
+  }
+
+  if (!nextStyle || typeof nextStyle !== "object") {
+    dom.style.cssText = "";
+    return;
+  }
+
+  if (typeof previousStyle === "string") {
+    dom.style.cssText = "";
+  } else if (previousStyle && typeof previousStyle === "object") {
+    Object.keys(previousStyle).forEach((name) => {
+      if (!(name in nextStyle)) setStyleValue(dom.style, name, "");
+    });
+  }
+
+  Object.entries(nextStyle).forEach(([name, value]) => {
+    if (!Object.is((previousStyle as Record<string, unknown>)?.[name], value)) {
+      setStyleValue(dom.style, name, value);
+    }
+  });
+}
+
+function removeDomProperty(dom: HTMLElement | Text, name: string, value: unknown) {
+  if (name === "style" && dom instanceof HTMLElement) {
+    updateStyle(dom, value, null);
+    return;
+  }
+
+  if (dom instanceof Element && (name.startsWith("data-") || name.startsWith("aria-"))) {
+    dom.removeAttribute(name);
+    return;
+  }
+
+  if (name in dom) {
+    const currentValue = (dom as any)[name];
+    (dom as any)[name] = typeof currentValue === "boolean" ? false : "";
+  } else if (dom instanceof Element) {
+    dom.removeAttribute(name);
+  }
+}
+
+function setDomProperty(dom: HTMLElement | Text, name: string, value: unknown) {
+  if (name === "style" && dom instanceof HTMLElement) return;
+
+  if (value === null || value === undefined || value === false) {
+    removeDomProperty(dom, name, value);
+    return;
+  }
+
+  if (dom instanceof Element && (name.startsWith("data-") || name.startsWith("aria-"))) {
+    dom.setAttribute(name, String(value));
+  } else if (name in dom) {
+    (dom as any)[name] = value;
+  } else if (dom instanceof Element) {
+    dom.setAttribute(name, String(value));
+  }
+}
 
 export function updateDom(
   dom: HTMLElement | Text,
-  prevProps: any,
-  nextProps: any,
+  previousProps: Record<string, any>,
+  nextProps: Record<string, any>,
 ) {
-  // 1. 移除旧的或变化的事件监听
-  Object.keys(prevProps)
+  Object.keys(previousProps)
     .filter(isEvent)
-    .filter((key) => !(key in nextProps) || isNew(prevProps, nextProps)(key))
+    .filter(
+      (name) =>
+        !(name in nextProps) || previousProps[name] !== nextProps[name],
+    )
     .forEach((name) => {
-      const eventType = name.toLowerCase().substring(2);
-      dom.removeEventListener(eventType, prevProps[name]);
+      const { capture, eventName } = getEventConfig(name);
+      dom.removeEventListener(eventName, previousProps[name], capture);
     });
 
-  // 2. 移除旧属性
-  Object.keys(prevProps)
+  Object.keys(previousProps)
     .filter(isProperty)
-    .filter(isGone(prevProps, nextProps))
-    .forEach((name) => {
-      (dom as any)[name] = "";
-    });
+    .filter((name) => !(name in nextProps))
+    .forEach((name) => removeDomProperty(dom, name, previousProps[name]));
 
-  // 3. 设置新属性或变化的属性
   Object.keys(nextProps)
     .filter(isProperty)
-    .filter(isNew(prevProps, nextProps))
+    .filter(
+      (name) =>
+        name === "style" || previousProps[name] !== nextProps[name],
+    )
     .forEach((name) => {
-      if (name === "style") {
-        const style = nextProps[name];
-        if (typeof style === "object" && style !== null) {
-          Object.keys(style).forEach((key) => {
-            (dom as HTMLElement).style[key as any] = style[key];
-          });
-        } else if (typeof style === "string") {
-          (dom as HTMLElement).style.cssText = style;
-        }
+      if (name === "style" && dom instanceof HTMLElement) {
+        updateStyle(dom, previousProps[name], nextProps[name]);
       } else {
-        (dom as any)[name] = nextProps[name];
+        setDomProperty(dom, name, nextProps[name]);
       }
     });
 
-  // 4. 添加新事件
   Object.keys(nextProps)
     .filter(isEvent)
-    .filter(isNew(prevProps, nextProps))
+    .filter((name) => previousProps[name] !== nextProps[name])
     .forEach((name) => {
-      const eventType = name.toLowerCase().substring(2);
-      dom.addEventListener(eventType, nextProps[name]);
+      const { capture, eventName } = getEventConfig(name);
+      dom.addEventListener(eventName, nextProps[name], capture);
     });
 }
