@@ -1,34 +1,69 @@
 # Koact
 
-Koact 是一个为了深入理解 React 原理而从 Didact 实现的 Mini-React 框架。它实现了 Fiber 架构、基于空闲时间的协作式调度以及 Hooks 系统。
+[![CI](https://github.com/kogorou0105-bit/koact/actions/workflows/ci.yml/badge.svg)](https://github.com/kogorou0105-bit/koact/actions/workflows/ci.yml)
 
-通过 Koact，你可以直观地看到 React 内部是如何通过链表（Fiber）管理组件状态，以及如何通过时间切片（Time Slicing）来保持页面流畅的。
+Koact 是一个使用 TypeScript 从零实现的 React-like Runtime，用于研究 Fiber、协调、调度、Hooks 和 Commit 生命周期。项目从 Didact 的教学模型出发，进一步实现了多 Root、Keyed Diff、环形 UpdateQueue、自动批处理和 Fiber 树可视化。
 
-The project is for learning purposes only. 该项目仅以学习为目的。
+> Koact 面向原理学习和实验，不以兼容 React 生态或生产环境为目标。
 
-## ✨ 特性 (Features)
+## 核心能力
 
-- [x] **JSX Support**: 基于 Vite 和 Babel 的 JSX 解析
-- [x] **Virtual DOM**: 虚拟 DOM 节点的创建与管理
-- [x] **Functional Components**: 支持函数组件
-- [x] **Fiber Architecture**: 基于链表的 Fiber 架构，支持任务中断与恢复
-- [x] **Cooperative Scheduling**: 利用空闲回调和降级调度实现可中断的渲染阶段
-- [x] **Reconciliation**:
-  - [x] Diff 算法
-  - [x] Keyed Diff (基于 Map 的节点复用)
-  - [x] Deletion (节点卸载与清理)
-- [x] **Hooks System**:
-  - [x] `useState` (状态管理)
-  - [x] `useEffect` (副作用处理，支持 Cleanup)
-  - [x] `useMemo` & `useCallback` (性能优化)
-  - [x] `useRef` (DOM 引用与持久化存储)
-- [x] **Architecture**:
-  - [x] Dispatcher Pattern (依赖倒置，实现核心包与渲染器解耦)
-  - [x] Event-driven pattern. (事件驱动，关键节点设置探针向外暴露关键数据，并将数据处理交给外部插件)
-- [x] **Plugin**:
-  - [x] Fiber Tree visulization (Fiber树的可视化)
+| 模块 | 已实现能力 |
+| --- | --- |
+| Element | JSX、文本节点、数组与空节点归一化、Fragment、函数组件 |
+| Fiber | `child/sibling/parent` 链表遍历、current/WIP 隔离、过期 WIP 丢弃 |
+| Scheduler | 基于 deadline 的可中断 Render、空闲回调降级、多 Root 调度 |
+| Reconciler | 基于 key 与 type 的节点复用、移动检测、删除收集、DOM identity 保持 |
+| Hooks | `useState`、`useEffect`、`useMemo`、`useCallback`、`useRef`、Hook 顺序校验 |
+| State | O(1) 入队的环形 UpdateQueue、函数式更新、跳过更新后的 Rebase 基础 |
+| Batching | 同一 JavaScript 回调中的多次更新只安排一次 Root flush |
+| Commit | DOM 更新与排序、effect cleanup/setup、ref detach/attach、完整卸载 |
+| DevTools | Commit 探针与 Fiber 树可视化 Vite 插件 |
 
-## 使用方式
+## 工作流程
+
+```mermaid
+flowchart LR
+  JSX[JSX / createElement] --> Element[ReactElement]
+  Element --> Root[FiberRoot]
+  Root --> Batch[Microtask batching]
+  Batch --> Scheduler[Cooperative scheduler]
+  Scheduler --> Render[Interruptible render]
+  Render --> Reconcile[Keyed reconciliation]
+  Reconcile --> WIP[Work-in-progress Fiber tree]
+  WIP --> Commit[Synchronous commit]
+  Commit --> DOM[DOM / refs / effects]
+
+  Hooks[Public Hooks API] --> Dispatcher[Current Dispatcher]
+  Dispatcher --> Runtime[Renderer Hook runtime]
+  Runtime --> Queue[Circular UpdateQueue]
+  Queue --> Batch
+```
+
+Render 阶段可以在 deadline 耗尽时暂停和恢复。Commit 阶段保持同步，只有完整 WIP 树能够发布为 current。Render 期间到达的新更新会使旧版本结果失效，但已进入 UpdateQueue 的 action 不会因为 WIP 被丢弃而丢失。
+
+## 包结构
+
+| 路径 | 职责 |
+| --- | --- |
+| `packages/react` | Element 模型、Fragment、Hooks 公共 API 与 Dispatcher |
+| `packages/react-dom` | Scheduler、Reconciler、DOM、Hooks 和 Commit 实现 |
+| `packages/vite-plugin-koact-devtools` | 注入 Fiber 树可视化面板 |
+| `packages/ko-vite` | 独立的 mini-vite 实验 |
+| `examples` | Todo、Fragment、Ref 和性能示例 |
+
+`@koact/react` 不依赖 DOM。Hooks 的公共 API 通过 Dispatcher 转发到当前 Renderer，实现核心接口与宿主实现的解耦。
+
+## 本地运行
+
+要求 Node.js `^20.19.0 || >=22.12.0` 和 pnpm `10.27.0`。
+
+```bash
+pnpm install --frozen-lockfile
+pnpm dev:todo
+```
+
+基本用法：
 
 ```tsx
 import React from "@koact/react";
@@ -37,61 +72,48 @@ import { createRoot } from "@koact/react-dom";
 const root = createRoot(document.getElementById("root")!);
 root.render(<App />);
 
-// 卸载时会清理 effects 和 refs
+// 卸载时会清理 state queue、effects 和 refs。
 root.unmount();
 ```
 
-原有的 `ReactDOM.render(element, container)` 仍然保留，并与 `createRoot`
-共享同一套多 Root 调度实现。
+`ReactDOM.render(element, container)` 仍然可用，并与 `createRoot` 共享同一套多 Root 调度实现。
+
+## 质量门禁
 
 ```bash
+# 类型检查、覆盖率测试、Todo lint、全部示例构建
+pnpm check
+
+# 快速检查核心包
 pnpm check:core
-pnpm --filter todo-app build
 ```
+
+当前基线为 5 个测试文件、35 个测试，覆盖批处理、中断恢复、多 Root 隔离、Keyed DOM identity、effect/ref 生命周期及异常隔离。Vitest 全局覆盖率门槛为：
+
+| Statements | Branches | Functions | Lines |
+| ---: | ---: | ---: | ---: |
+| 85% | 80% | 90% | 85% |
+
+GitHub Actions 会在 push 和 pull request 中使用冻结锁文件重复执行上述检查。
+
+## 批处理语义
+
+同一同步调用、原生事件回调、Promise 回调或 timer 回调中的多次 setter 会先进入共享队列，再通过一个微任务安排 Root 工作。批处理只减少 Render/Commit 次数，不会合并或覆盖 action。
+
+如果宿主渲染尚未开始，来自后续回调的工作仍可能被同一个 Root 调度合并；Koact 不承诺每个 macrotask 必然产生一次独立 Commit。
 
 ## 当前边界
 
-Koact 目前面向现代浏览器 ESM 环境。`react-dom` 可以在没有 DOM 的环境中安全导入，
-但尚未提供服务端渲染器。当前调度模型不包含 React 的 Lanes、Suspense、Transitions
-或完整 Concurrent Rendering 语义。
+- 当前只有单一 `DefaultLane`，尚未实现多优先级 Lanes、`startTransition` 和真正的高优更新抢占。
+- 尚未实现 Suspense、Error Boundary、Context、SSR、Hydration 或 Server Components。
+- `useEffect` 在 Commit 中同步执行，尚未拆分 layout 与 passive effect 阶段。
+- DOM 事件使用逐节点原生监听，尚未实现 Root 事件委托和合成事件。
+- Commit 当前会同步校准宿主子树，尚未使用 `subtreeFlags` 做精确增量遍历。
 
-后续的 UpdateQueue、自动批处理、Lanes、`startTransition` 和 Fiber Bailout 设计见
-[现代更新机制实施计划](./docs/modern-react-roadmap.md)。
+后续的 Lanes、`startTransition` 和 Fiber Bailout 设计见[现代更新机制实施计划](./docs/modern-react-roadmap.md)。
 
-## 📦 架构设计 (Architecture)
+## 设计来源
 
-Koact 采用了与 React 官方一致的 Monorepo 结构，通过依赖倒置原则（Dispatcher 模式）实现了核心逻辑与渲染实现的解耦。
-
-### 1. @koact/react (Core)
-
-#### 抽象层
-
-- 定义组件标准（`createElement`, `Fragment`）。
-- 定义 Hooks 的公开 API（`useState`, `useEffect`...）。
-- 不包含具体逻辑，仅负责将调用转发给当前的 Dispatcher。
-- **特点**：平台无关，可以在 Browser、Native 或 Server 端复用。
-
-### 2. @koact/react-dom (Renderer)
-
-#### 实现层
-
-- 实现了 Scheduler（调度器）和 Reconciler（协调器）。
-- 实现了具体的 Hooks 逻辑（操作 Fiber 链表）。
-- 负责具体的 DOM 操作（增删改查）。
-- **初始化时**：将自身的 Hooks 实现注入到 `@koact/react` 的 Dispatcher 中。
-
-## 📚 灵感来源 (Inspiration)
-
-特别致谢：
-
-Didact by Rodrigo Pombo:
-
-本项目早期的核心逻辑深受 Rodrigo Pombo 的 "Build your own React" 系列文章启发，Didact 是学习 Mini-React 最好的起点。
-
-- 📝 **文章教程**: [Build your own React](https://pomb.us/build-your-own-react/)
-- 📺 **视频教程**: [Build your own React (YouTube)](https://www.youtube.com/watch?v=GBe5VwmgA4Q)
-- 📄 **仓库地址**: [Didact](https://github.com/pomber/didact)
-
-React by Facebook (Meta):
-
-React 官方源码提供了关于 Hooks 实现、Fiber 调度以及合成事件系统最权威的参考。
+- [Build your own React](https://pomb.us/build-your-own-react/)
+- [Didact](https://github.com/pomber/didact)
+- [React](https://github.com/facebook/react)

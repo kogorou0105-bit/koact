@@ -1,16 +1,16 @@
 # Koact 现代更新机制实施计划
 
-状态：Draft
-更新时间：2026-08-26
+状态：阶段 A 已完成，阶段 B/C 规划中
+更新时间：2026-08-29
 
 ## 1. 背景
 
 Koact 已经具备 Fiber 树、可中断 Render、统一 Commit、Hooks、多 Root、keyed
-reconciliation 和 effect/ref 生命周期。当前更新系统仍然是教学版模型：
+reconciliation、effect/ref 生命周期、环形 UpdateQueue 和自动批处理。当前更新系统仍有以下边界：
 
-- `useState` 使用数组保存待处理 action，不支持按优先级跳过和重放更新。
-- Root 通过版本号判断是否废弃 WIP，但所有更新优先级相同。
-- 同一轮中的多次更新会因为 Root 去重而自然合并，但没有显式批处理边界。
+- `useState` 已支持携带 Lane 的环形更新和 Rebase，但运行时只有单一 `DefaultLane`。
+- Root 仍通过版本号判断是否废弃 WIP，所有更新优先级相同。
+- 同一 JavaScript 回调中的多次更新通过微任务合并 Root 调度。
 - 每个函数组件都会重新执行，没有 `memo` 和基于子树优先级的 Bailout。
 
 下一阶段将围绕一条完整链路改造：
@@ -54,15 +54,15 @@ dispatch action
 
 三个能力存在明确依赖，必须按以下顺序落地：
 
-| 阶段 | 能力 | 依赖原因 |
-| --- | --- | --- |
-| A | 环形 UpdateQueue + 自动批处理 | Lane 需要可跳过、可重放的更新队列 |
-| B | Lanes + `startTransition` | Bailout 必须知道当前 Fiber 和子树是否有目标优先级 |
-| C | `memo` + Fiber Bailout | 依赖 `lanes`、`childLanes` 和完整的子树克隆逻辑 |
+| 阶段 | 状态 | 能力 | 依赖原因 |
+| --- | --- | --- | --- |
+| A | 已完成 | 环形 UpdateQueue + 自动批处理 | Lane 需要可跳过、可重放的更新队列 |
+| B | 规划中 | Lanes + `startTransition` | Bailout 必须知道当前 Fiber 和子树是否有目标优先级 |
+| C | 规划中 | `memo` + Fiber Bailout | 依赖 `lanes`、`childLanes` 和完整的子树克隆逻辑 |
 
 每个阶段独立提交，只有当前阶段测试通过后才进入下一阶段。
 
-## 5. 阶段 A：环形 UpdateQueue 与自动批处理
+## 5. 阶段 A：环形 UpdateQueue 与自动批处理（已完成）
 
 ### 5.1 数据结构
 
@@ -160,15 +160,15 @@ let batchDepth = 0;
 const batchedRoots = new Set<FiberRoot>();
 
 export function batchedUpdates<T>(scope: () => T): T;
-export function finishBatch(): void;
 ```
 
 规则：
 
-- setter 始终立即入队并标记 Root，但同一 JavaScript task 只安排一个 flush microtask。
+- setter 始终立即入队并标记 Root，同一 JavaScript 回调中的更新共享 flush microtask。
 - 最外层 `batchedUpdates` 结束时只安排 flush，不同步执行 Render。
-- flush microtask 再调用 `ensureRootIsScheduled`，统一选择真正的 Host Callback。
-- 同一个同步调用栈、Promise callback、timer callback 或原生事件 callback 中的更新会在该回调结束后的微任务统一刷新。
+- flush microtask 调用每个 Root 的 `flush`，再统一安排真正的 Host Callback。
+- 同一个同步调用栈、Promise callback、timer callback 或原生事件 callback 中的更新会在该回调结束后的微任务统一安排。
+- 如果宿主 Render 尚未开始，来自后续回调的工作可能继续合并；不承诺每个 macrotask 独立 Commit。
 - 不合并 action，只合并 Render/Commit。
 - 多 Root 可以共享批处理边界，但每个 Root 独立选择工作。
 
@@ -197,7 +197,7 @@ flush microtask 和 Host Callback 的职责必须分开并可测试。
 - 一个事件中的三个 setter 只产生一次 Commit。
 - 三个 functional update 得到累计结果，而不是最后一次覆盖。
 - Promise 回调中的多个更新自动批处理。
-- 不同 macrotask 分别提交。
+- 前一次工作完成后，后续 task 的更新会产生新的 Commit。
 - 同一批次中的两个 Root 各提交一次。
 
 ### 5.5 阶段 A 完成标准
@@ -205,7 +205,7 @@ flush microtask 和 Host Callback 的职责必须分开并可测试。
 - State Hook 不再使用 action 数组和 `processedCount`。
 - 更新队列支持中断后的安全重放。
 - 批处理测试能够断言 Render 次数和 Commit 次数。
-- 现有 19 个回归测试全部保持通过。
+- 当前 35 个核心测试全部通过，并由 CI 执行覆盖率门禁。
 
 ## 6. 阶段 B：Lanes 与 startTransition
 
@@ -546,19 +546,35 @@ Lane 清理前调用用户函数。这样 ref callback 或 effect cleanup/setup 
 
 ## 8. 文件改造清单
 
-预计新增：
+阶段 A 已新增：
 
 ```text
 packages/react-dom/src/updateQueue.ts
 packages/react-dom/src/batching.ts
 packages/react-dom/src/lanes.ts
 packages/react-dom/src/__test__/updateQueue.test.ts
+packages/react-dom/src/__test__/batching.test.ts
+```
+
+阶段 B/C 计划新增：
+
+```text
 packages/react-dom/src/__test__/lanes.test.ts
 packages/react-dom/src/__test__/memo.test.ts
 examples/concurrent-lab/
 ```
 
-预计修改：
+阶段 A 已修改：
+
+```text
+packages/react-dom/src/types.ts
+packages/react-dom/src/hooks.ts
+packages/react-dom/src/scheduler.ts
+packages/react-dom/src/commit.ts
+packages/react-dom/src/__test__/runtime.test.ts
+```
+
+阶段 B/C 预计修改：
 
 ```text
 packages/react/src/index.ts
@@ -578,9 +594,7 @@ packages/vite-plugin-koact-devtools/client.js
 每个阶段都必须执行：
 
 ```bash
-pnpm check:core
-pnpm -r --if-present build
-pnpm --filter todo-app lint
+pnpm check
 ```
 
 最终阶段额外要求：
