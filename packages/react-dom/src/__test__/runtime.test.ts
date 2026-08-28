@@ -8,7 +8,7 @@ import {
 } from "vitest";
 import React, { useEffect, useMemo, useRef, useState } from "@koact/react";
 import ReactDOM, { createRoot } from "../index";
-import { __resetSchedulerForTests } from "../scheduler";
+import { __resetSchedulerForTests, getOrCreateRoot } from "../scheduler";
 
 const h = React.createElement;
 
@@ -78,6 +78,321 @@ describe("Koact runtime", () => {
     await flushWork();
 
     expect(container.textContent).toBe("2");
+  });
+
+  it("rebinds a state queue to the latest committed fiber", async () => {
+    const container = document.createElement("div");
+    const internalRoot = getOrCreateRoot(container);
+    const root = createRoot(container);
+    let setCount!: (value: number) => void;
+
+    function Counter() {
+      const [count, updateCount] = useState(0);
+      setCount = updateCount;
+      return h("span", null, count);
+    }
+
+    root.render(h(Counter, null));
+    await flushWork();
+    const firstFiber = internalRoot.current!.child!;
+    const queue = firstFiber.memoizedState!.queue!;
+    expect(queue.fiber).toBe(firstFiber);
+
+    setCount(1);
+    expect(queue.fiber).toBe(firstFiber);
+    await flushWork();
+    expect(queue.fiber).toBe(internalRoot.current!.child);
+    expect(queue.fiber).not.toBe(firstFiber);
+
+    root.unmount();
+    await flushWork();
+    expect(queue.fiber).toBeNull();
+    expect(queue.root).toBeNull();
+    expect(queue.pending).toBeNull();
+  });
+
+  it("automatically batches updates from one native event", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const queueMicrotask = vi.spyOn(globalThis, "queueMicrotask");
+    let renderCount = 0;
+    let commitCount = 0;
+
+    function Counter() {
+      renderCount++;
+      const [count, setCount] = useState(0);
+      useEffect(() => {
+        commitCount++;
+      });
+      return h(
+        "button",
+        {
+          onClick: () => {
+            setCount((value) => value + 1);
+            setCount((value) => value + 1);
+            setCount((value) => value + 1);
+          },
+        },
+        count,
+      );
+    }
+
+    root.render(h(Counter, null));
+    await flushWork();
+    queueMicrotask.mockClear();
+
+    container.querySelector("button")!.dispatchEvent(new MouseEvent("click"));
+
+    expect(queueMicrotask).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toBe("0");
+    await flushWork();
+    expect(container.textContent).toBe("3");
+    expect(renderCount).toBe(2);
+    expect(commitCount).toBe(2);
+  });
+
+  it("batches updates from one promise callback", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    let setCount!: (update: (count: number) => number) => void;
+    let renderCount = 0;
+    let commitCount = 0;
+
+    function Counter() {
+      renderCount++;
+      const [count, updateCount] = useState(0);
+      setCount = updateCount;
+      useEffect(() => {
+        commitCount++;
+      });
+      return h("span", null, count);
+    }
+
+    root.render(h(Counter, null));
+    await flushWork();
+    await Promise.resolve().then(() => {
+      setCount((count) => count + 1);
+      setCount((count) => count + 1);
+    });
+    await flushWork();
+
+    expect(container.textContent).toBe("2");
+    expect(renderCount).toBe(2);
+    expect(commitCount).toBe(2);
+  });
+
+  it("commits a later task after previous work has flushed", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    let setCount!: (update: (count: number) => number) => void;
+    let commitCount = 0;
+
+    function Counter() {
+      const [count, updateCount] = useState(0);
+      setCount = updateCount;
+      useEffect(() => {
+        commitCount++;
+      });
+      return h("span", null, count);
+    }
+
+    root.render(h(Counter, null));
+    await flushWork();
+    setTimeout(() => {
+      setCount((count) => count + 1);
+      setCount((count) => count + 1);
+    }, 0);
+    await flushWork();
+    expect(container.textContent).toBe("2");
+    expect(commitCount).toBe(2);
+
+    setTimeout(() => setCount((count) => count + 1), 0);
+    await flushWork();
+    expect(container.textContent).toBe("3");
+    expect(commitCount).toBe(3);
+  });
+
+  it("batches multiple roots without merging their work", async () => {
+    const firstContainer = document.createElement("div");
+    const secondContainer = document.createElement("div");
+    let updateFirst!: (update: (count: number) => number) => void;
+    let updateSecond!: (update: (count: number) => number) => void;
+    const renders = [0, 0];
+    const commits = [0, 0];
+
+    function Counter(props: { index: number }) {
+      renders[props.index]++;
+      const [count, setCount] = useState(0);
+      if (props.index === 0) updateFirst = setCount;
+      else updateSecond = setCount;
+      useEffect(() => {
+        commits[props.index]++;
+      });
+      return h("span", null, count);
+    }
+
+    createRoot(firstContainer).render(h(Counter, { index: 0 }));
+    createRoot(secondContainer).render(h(Counter, { index: 1 }));
+    await flushWork();
+
+    updateFirst((count) => count + 1);
+    updateFirst((count) => count + 1);
+    updateSecond((count) => count + 1);
+    updateSecond((count) => count + 1);
+    await flushWork();
+
+    expect(firstContainer.textContent).toBe("2");
+    expect(secondContainer.textContent).toBe("2");
+    expect(renders).toEqual([2, 2]);
+    expect(commits).toEqual([2, 2]);
+  });
+
+  it("keeps updates queued while an obsolete render is interrupted", async () => {
+    const previousRequestIdleCallback = globalThis.requestIdleCallback;
+    const previousCancelIdleCallback = globalThis.cancelIdleCallback;
+    const idleCallbacks: IdleRequestCallback[] = [];
+    let callbackId = 0;
+
+    globalThis.requestIdleCallback = vi.fn((callback) => {
+      idleCallbacks.push(callback);
+      return ++callbackId;
+    });
+    globalThis.cancelIdleCallback = vi.fn();
+
+    try {
+      const container = document.createElement("div");
+      const root = createRoot(container);
+      const renderedStates: number[] = [];
+      let setCount!: (update: (count: number) => number) => void;
+
+      function Counter() {
+        const [count, updateCount] = useState(0);
+        setCount = updateCount;
+        renderedStates.push(count);
+        return h("span", null, count);
+      }
+
+      root.render(h(Counter, null));
+      await vi.advanceTimersByTimeAsync(0);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+      expect(container.textContent).toBe("0");
+
+      setCount((count) => count + 1);
+      await vi.advanceTimersByTimeAsync(0);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 0,
+      });
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 0,
+      });
+      expect(renderedStates).toEqual([0, 1]);
+
+      setCount((count) => count + 1);
+      await vi.advanceTimersByTimeAsync(0);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+
+      expect(container.textContent).toBe("2");
+      expect(renderedStates).toEqual([0, 1, 2]);
+    } finally {
+      __resetSchedulerForTests();
+      if (previousRequestIdleCallback) {
+        globalThis.requestIdleCallback = previousRequestIdleCallback;
+      } else {
+        Reflect.deleteProperty(globalThis, "requestIdleCallback");
+      }
+      if (previousCancelIdleCallback) {
+        globalThis.cancelIdleCallback = previousCancelIdleCallback;
+      } else {
+        Reflect.deleteProperty(globalThis, "cancelIdleCallback");
+      }
+    }
+  });
+
+  it("replays consumed state queues after a render error", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const previousReportError = globalThis.reportError;
+    const reportError = vi.fn();
+    const updateFirst = vi.fn((value: number) => value + 1);
+    const updateSecond = vi.fn((value: number) => value + 2);
+    let shouldThrow = false;
+    let setFirst!: (update: (value: number) => number) => void;
+    let setSecond!: (update: (value: number) => number) => void;
+    globalThis.reportError = reportError;
+
+    function Counters() {
+      const [first, updateFirstState] = useState(0);
+      const [second, updateSecondState] = useState(0);
+      setFirst = updateFirstState;
+      setSecond = updateSecondState;
+      return h("span", null, `${first}:${second}`);
+    }
+
+    function Bomb() {
+      if (shouldThrow) throw new Error("render failed");
+      return null;
+    }
+
+    function App() {
+      return [h(Counters, null), h(Bomb, null)];
+    }
+
+    try {
+      root.render(h(App, null));
+      await flushWork();
+      expect(container.textContent).toBe("0:0");
+
+      shouldThrow = true;
+      setFirst(updateFirst);
+      setSecond(updateSecond);
+      await flushWork();
+
+      expect(reportError).toHaveBeenCalledTimes(1);
+      expect(container.textContent).toBe("0:0");
+
+      shouldThrow = false;
+      root.render(h(App, null));
+      await flushWork();
+
+      expect(container.textContent).toBe("1:2");
+      expect(updateFirst).toHaveBeenCalledTimes(2);
+      expect(updateSecond).toHaveBeenCalledTimes(2);
+    } finally {
+      if (previousReportError) globalThis.reportError = previousReportError;
+      else Reflect.deleteProperty(globalThis, "reportError");
+    }
+  });
+
+  it("discards queued state updates when the root unmounts", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    let setCount!: (value: number) => void;
+
+    function Counter() {
+      const [count, updateCount] = useState(0);
+      setCount = updateCount;
+      return h("span", null, count);
+    }
+
+    root.render(h(Counter, null));
+    await flushWork();
+
+    setCount(1);
+    root.unmount();
+    await flushWork();
+
+    expect(container.textContent).toBe("");
+    setCount(2);
+    await flushWork();
+    expect(container.textContent).toBe("");
   });
 
   it("preserves intentionally undefined state and memo values", async () => {

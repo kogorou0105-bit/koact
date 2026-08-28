@@ -44,8 +44,9 @@ function detachDeletedStateAndRefs(fiber: Fiber) {
     while (hook) {
       if (hook.tag === "STATE" && hook.queue) {
         hook.queue.mounted = false;
-        hook.queue.pending.length = 0;
+        hook.queue.pending = null;
         hook.queue.root = null;
+        hook.queue.fiber = null;
       }
       hook = hook.next || null;
     }
@@ -159,10 +160,9 @@ function commitStateQueues(fiber?: Fiber) {
     let hook = node.memoizedState;
     while (hook) {
       if (hook.tag === "STATE" && hook.queue) {
-        const processedCount = hook.processedCount || 0;
-        if (processedCount > 0) hook.queue.pending.splice(0, processedCount);
-        hook.processedCount = 0;
         hook.queue.mounted = true;
+        hook.queue.root = node.root;
+        hook.queue.fiber = node;
       }
       hook = hook.next || null;
     }

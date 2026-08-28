@@ -1,4 +1,5 @@
 import type { ReactElement, ReactNode } from "@koact/react";
+import type { Lane } from "./lanes";
 
 export type EffectTag = "PLACEMENT" | "UPDATE" | "DELETION";
 export type RootStatus = "active" | "unmounting" | "unmounted";
@@ -16,6 +17,7 @@ export interface FiberRoot {
   renderVersion: number;
   status: RootStatus;
   schedule: () => void;
+  flush: () => void;
 }
 
 export interface Fiber {
@@ -37,18 +39,26 @@ export interface Fiber {
 }
 
 export interface StateQueue<T = unknown> {
-  pending: StateAction<T>[];
+  pending: StateUpdate<T> | null;
   dispatch: StateDispatch<T> | null;
   root: FiberRoot | null;
+  fiber: Fiber | null;
   mounted: boolean;
+}
+
+export interface StateUpdate<T = unknown> {
+  lane: Lane;
+  action: StateAction<T>;
+  next: StateUpdate<T>;
 }
 
 export interface Hook {
   tag: "STATE" | "EFFECT" | "MEMO" | "REF";
   initialized?: boolean;
   state?: unknown;
+  baseState?: unknown;
+  baseQueue?: StateUpdate<any> | null;
   queue?: StateQueue<any>;
-  processedCount?: number;
   callback?: () => void | (() => void);
   deps?: readonly unknown[];
   cleanup?: (() => void) | void;

@@ -3,6 +3,10 @@ import {
   type ReactNode,
 } from "@koact/react";
 import type { FiberRoot } from "./types";
+import {
+  __resetBatchingForTests,
+  scheduleBatchedRoot,
+} from "./batching";
 import { performUnitOfWork } from "./reconciler";
 import { commitRoot } from "./commit";
 
@@ -42,7 +46,7 @@ function scheduleUpdateOnRoot(root: FiberRoot) {
   if (root.status !== "active") return;
 
   root.updateVersion++;
-  enqueueRoot(root);
+  scheduleBatchedRoot(root);
 }
 
 function prepareFreshStack(root: FiberRoot) {
@@ -188,6 +192,7 @@ export function getOrCreateRoot(container: HTMLElement): FiberRoot {
     renderVersion: 0,
     status: "active",
     schedule: () => scheduleUpdateOnRoot(root),
+    flush: () => enqueueRoot(root),
   };
 
   rootsByContainer.set(container, root);
@@ -210,10 +215,11 @@ export function unmountContainer(root: FiberRoot) {
   root.status = "unmounting";
   root.element = null;
   root.updateVersion++;
-  enqueueRoot(root);
+  scheduleBatchedRoot(root);
 }
 
 export function __resetSchedulerForTests() {
+  __resetBatchingForTests();
   cancelHostCallback();
   scheduledRoots.length = 0;
   scheduledRootSet.clear();
