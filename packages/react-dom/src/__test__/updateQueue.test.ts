@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { DefaultLane, NoLane, type Lane } from "../lanes";
+import { DefaultLane, NoLane, TransitionLane } from "../lanes";
 import type { StateQueue } from "../types";
 import {
   enqueueUpdate,
   mergeUpdateQueues,
   processUpdateQueue,
 } from "../updateQueue";
-
-const DeferredLane = 0b0010 as Lane;
 
 function createQueue<State>(): StateQueue<State> {
   return {
@@ -60,7 +58,7 @@ describe("state update queue", () => {
   it("rebases skipped updates without duplicating committed work", () => {
     const queue = createQueue<number>();
     enqueueUpdate(queue, (state) => state + 1, DefaultLane);
-    enqueueUpdate(queue, (state) => state * 10, DeferredLane);
+    enqueueUpdate(queue, (state) => state * 10, TransitionLane);
     enqueueUpdate(queue, (state) => state + 1, DefaultLane);
 
     const defaultResult = processUpdateQueue(
@@ -76,7 +74,7 @@ describe("state update queue", () => {
     const rebasedResult = processUpdateQueue(
       defaultResult.baseState,
       defaultResult.baseQueue,
-      DeferredLane,
+      TransitionLane,
     );
     expect(rebasedResult.memoizedState).toBe(11);
     expect(rebasedResult.baseQueue).toBeNull();
@@ -84,8 +82,8 @@ describe("state update queue", () => {
 
   it("preserves deferred updates when no lane can be processed", () => {
     const queue = createQueue<number>();
-    enqueueUpdate(queue, (state) => state + 1, DeferredLane);
-    enqueueUpdate(queue, (state) => state * 2, DeferredLane);
+    enqueueUpdate(queue, (state) => state + 1, TransitionLane);
+    enqueueUpdate(queue, (state) => state * 2, TransitionLane);
 
     const skippedResult = processUpdateQueue(
       3,
@@ -99,7 +97,7 @@ describe("state update queue", () => {
     const replayedResult = processUpdateQueue(
       skippedResult.baseState,
       skippedResult.baseQueue,
-      DeferredLane,
+      TransitionLane,
     );
     expect(replayedResult.memoizedState).toBe(8);
     expect(replayedResult.baseQueue).toBeNull();
@@ -108,7 +106,7 @@ describe("state update queue", () => {
   it("appends new pending updates after an existing base queue", () => {
     const base = createQueue<number>();
     const pending = createQueue<number>();
-    enqueueUpdate(base, (state) => state + 1, DeferredLane);
+    enqueueUpdate(base, (state) => state + 1, TransitionLane);
     enqueueUpdate(pending, (state) => state * 3, DefaultLane);
 
     const merged = mergeUpdateQueues(base.pending, pending.pending);
@@ -121,7 +119,7 @@ describe("state update queue", () => {
     const replayedResult = processUpdateQueue(
       defaultResult.baseState,
       defaultResult.baseQueue,
-      DeferredLane,
+      TransitionLane,
     );
     expect(replayedResult.memoizedState).toBe(9);
   });

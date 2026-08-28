@@ -88,7 +88,7 @@ pnpm check
 pnpm check:core
 ```
 
-当前基线为 5 个测试文件、35 个测试，覆盖批处理、中断恢复、多 Root 隔离、Keyed DOM identity、effect/ref 生命周期及异常隔离。Vitest 全局覆盖率门槛为：
+当前基线为 6 个测试文件、40 个测试，覆盖 Lane 位运算、批处理、中断恢复、多 Root 隔离、Keyed DOM identity、effect/ref 生命周期及异常隔离。Vitest 全局覆盖率门槛为：
 
 | Statements | Branches | Functions | Lines |
 | ---: | ---: | ---: | ---: |
@@ -104,13 +104,16 @@ GitHub Actions 会在 push 和 pull request 中使用冻结锁文件重复执行
 
 ## 当前边界
 
-- 当前只有单一 `DefaultLane`，尚未实现多优先级 Lanes、`startTransition` 和真正的高优更新抢占。
+- 已定义 `SyncLane`、`DefaultLane` 和 `TransitionLane`，但运行时仍只分配 `DefaultLane`，尚未实现 `startTransition` 和真正的高优更新抢占。
 - 尚未实现 Suspense、Error Boundary、Context、SSR、Hydration 或 Server Components。
 - `useEffect` 在 Commit 中同步执行，尚未拆分 layout 与 passive effect 阶段。
 - DOM 事件使用逐节点原生监听，尚未实现 Root 事件委托和合成事件。
 - Commit 当前会同步校准宿主子树，尚未使用 `subtreeFlags` 做精确增量遍历。
 
-后续的 Lanes、`startTransition` 和 Fiber Bailout 设计见[现代更新机制实施计划](./docs/modern-react-roadmap.md)。
+## 项目路线图
+
+- [项目路线图](./docs/project-roadmap.md)：按优先级维护待办、验收标准和完成状态。
+- [现代更新机制实施计划](./docs/modern-react-roadmap.md)：记录 Lanes、`startTransition`、Update Rebase 和 Fiber Bailout 的底层设计。
 
 ## 设计来源
 

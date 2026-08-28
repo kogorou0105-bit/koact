@@ -1,6 +1,6 @@
 # Koact 现代更新机制实施计划
 
-状态：阶段 A 已完成，阶段 B/C 规划中
+状态：阶段 A 已完成，阶段 B 进行中，阶段 C 规划中
 更新时间：2026-08-29
 
 ## 1. 背景
@@ -57,7 +57,7 @@ dispatch action
 | 阶段 | 状态 | 能力 | 依赖原因 |
 | --- | --- | --- | --- |
 | A | 已完成 | 环形 UpdateQueue + 自动批处理 | Lane 需要可跳过、可重放的更新队列 |
-| B | 规划中 | Lanes + `startTransition` | Bailout 必须知道当前 Fiber 和子树是否有目标优先级 |
+| B | 进行中 | Lanes + `startTransition` | Bailout 必须知道当前 Fiber 和子树是否有目标优先级 |
 | C | 规划中 | `memo` + Fiber Bailout | 依赖 `lanes`、`childLanes` 和完整的子树克隆逻辑 |
 
 每个阶段独立提交，只有当前阶段测试通过后才进入下一阶段。
@@ -207,9 +207,11 @@ flush microtask 和 Host Callback 的职责必须分开并可测试。
 - 批处理测试能够断言 Render 次数和 Commit 次数。
 - 当前 35 个核心测试全部通过，并由 CI 执行覆盖率门禁。
 
-## 6. 阶段 B：Lanes 与 startTransition
+## 6. 阶段 B：Lanes 与 startTransition（进行中）
 
 ### 6.1 Lane 模型
+
+实施状态：Lane 常量与纯位运算工具已完成；Root/Fiber 字段、Lane 传播和调度尚未开始。
 
 扩展阶段 A 创建的 `packages/react-dom/src/lanes.ts`。第一版只保留能解释核心原理的最小集合：
 
@@ -372,7 +374,7 @@ commit(root, finishedLanes)
 
 ### 6.7 阶段 B 测试
 
-新增 `packages/react-dom/src/__test__/lanes.test.ts`：
+`packages/react-dom/src/__test__/lanes.test.ts` 已覆盖 Lane 位运算；后续继续覆盖：
 
 - Lane 合并、移除和最高优先级选择。
 - Default Render 跳过 Transition update。
@@ -556,10 +558,15 @@ packages/react-dom/src/__test__/updateQueue.test.ts
 packages/react-dom/src/__test__/batching.test.ts
 ```
 
-阶段 B/C 计划新增：
+阶段 B 已新增：
 
 ```text
 packages/react-dom/src/__test__/lanes.test.ts
+```
+
+阶段 B/C 计划新增：
+
+```text
 packages/react-dom/src/__test__/memo.test.ts
 examples/concurrent-lab/
 ```
