@@ -12,21 +12,29 @@
     "dev:fra": "pnpm --filter fragment dev",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "typecheck:core": "tsc -p tsconfig.core.json",
     "check:core": "pnpm typecheck:core && pnpm test:run",
+    "lint": "pnpm --filter todo-app lint",
+    "build:examples": "pnpm -r --if-present build",
+    "check": "pnpm typecheck:core && pnpm test:coverage && pnpm lint && pnpm build:examples",
     "build:todo": "pnpm --filter todo-app build",
     "create": "node scripts/create.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "packageManager": "pnpm@10.27.0",
   "devDependencies": {
     "@types/node": "^25.0.10",
+    "@vitest/coverage-v8": "4.0.18",
     "@vitest/ui": "4.0.18",
     "jsdom": "^27.4.0",
-    "tsx": "4.7.1",
+    "tsx": "4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
   }
