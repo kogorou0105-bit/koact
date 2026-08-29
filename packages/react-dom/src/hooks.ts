@@ -5,7 +5,7 @@ import type {
   RefObject,
   SetStateAction,
 } from "@koact/react";
-import { DefaultLane } from "./lanes";
+import { DefaultLane, markUpdateLaneFromFiberToRoot } from "./lanes";
 import type { Fiber, FiberRoot, Hook, StateQueue } from "./types";
 import {
   enqueueUpdate,
@@ -110,10 +110,16 @@ export function useState<T>(
       if (currentContext) {
         throw new Error("State updates during render are not supported.");
       }
-      if (!queue.mounted || !queue.root || queue.root.status !== "active") {
+      if (
+        !queue.mounted ||
+        !queue.root ||
+        !queue.fiber ||
+        queue.root.status !== "active"
+      ) {
         return;
       }
       enqueueUpdate(queue, action, DefaultLane);
+      markUpdateLaneFromFiberToRoot(queue.fiber, DefaultLane);
       queue.root.schedule();
     };
     hook.queue = queue;
@@ -135,7 +141,7 @@ export function useState<T>(
   const result = processUpdateQueue(
     hook.baseState as T,
     baseQueue,
-    DefaultLane,
+    context.root.renderLanes,
   );
   hook.state = result.memoizedState;
   hook.baseState = result.baseState;

@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "@koact/react";
 import { createDom } from "./dom";
+import { NoLane } from "./lanes";
 import {
   finishHooks,
   HooksDispatcher,
@@ -132,6 +133,8 @@ function reconcileChildren(
 
       newFiber = {
         root,
+        lanes: matchedFiber.lanes,
+        childLanes: matchedFiber.childLanes,
         type: matchedFiber.type,
         props: element.props,
         dom: matchedFiber.dom,
@@ -145,6 +148,8 @@ function reconcileChildren(
     } else {
       newFiber = {
         root,
+        lanes: NoLane,
+        childLanes: NoLane,
         type: element.type,
         props: element.props,
         dom: null,

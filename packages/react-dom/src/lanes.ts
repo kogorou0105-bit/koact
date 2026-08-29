@@ -1,3 +1,5 @@
+import type { Fiber, FiberRoot } from "./types";
+
 export type Lane = number;
 export type Lanes = number;
 
@@ -26,4 +28,21 @@ export function isHigherPriorityLane(first: Lane, second: Lane): boolean {
   if (first === NoLane) return false;
   if (second === NoLane) return true;
   return first < second;
+}
+
+export function markUpdateLaneFromFiberToRoot(
+  sourceFiber: Fiber,
+  lane: Lane,
+): FiberRoot {
+  sourceFiber.lanes = mergeLanes(sourceFiber.lanes, lane);
+
+  let parent = sourceFiber.parent;
+  while (parent) {
+    parent.childLanes = mergeLanes(parent.childLanes, lane);
+    parent = parent.parent;
+  }
+
+  const root = sourceFiber.root;
+  root.pendingLanes = mergeLanes(root.pendingLanes, lane);
+  return root;
 }

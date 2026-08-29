@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from "@koact/react";
-import type { Lane } from "./lanes";
+import type { Lane, Lanes } from "./lanes";
 
 export type EffectTag = "PLACEMENT" | "UPDATE" | "DELETION";
 export type RootStatus = "active" | "unmounting" | "unmounted";
@@ -13,6 +13,10 @@ export interface FiberRoot {
   workInProgress: Fiber | null;
   nextUnitOfWork: Fiber | null;
   deletions: Fiber[];
+  pendingLanes: Lanes;
+  renderLanes: Lanes;
+  finishedLanes: Lanes;
+  callbackPriority: Lane;
   updateVersion: number;
   renderVersion: number;
   status: RootStatus;
@@ -27,6 +31,8 @@ export interface Fiber {
     [key: string]: any;
   };
   root: FiberRoot;
+  lanes: Lanes;
+  childLanes: Lanes;
   dom?: HTMLElement | Text | null;
   parent?: Fiber;
   child?: Fiber;

@@ -4,6 +4,7 @@ import {
   batchedUpdates,
   scheduleBatchedRoot,
 } from "../batching";
+import { NoLane } from "../lanes";
 import type { FiberRoot } from "../types";
 
 function createTestRoot(flush: () => void): FiberRoot {
@@ -14,6 +15,10 @@ function createTestRoot(flush: () => void): FiberRoot {
     workInProgress: null,
     nextUnitOfWork: null,
     deletions: [],
+    pendingLanes: NoLane,
+    renderLanes: NoLane,
+    finishedLanes: NoLane,
+    callbackPriority: NoLane,
     updateVersion: 0,
     renderVersion: 0,
     status: "active",

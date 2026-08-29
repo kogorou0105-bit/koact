@@ -1,5 +1,6 @@
 import { updateDom } from "./dom";
 import { KoactEvents } from "./events";
+import { NoLane, removeLanes } from "./lanes";
 import type { Fiber, FiberRoot, Hook } from "./types";
 
 function reportError(error: unknown) {
@@ -38,7 +39,7 @@ function setRef(ref: unknown, value: HTMLElement | Text | null) {
   }
 }
 
-function detachDeletedStateAndRefs(fiber: Fiber) {
+function detachDeletedStateQueues(fiber: Fiber) {
   visitSubtree(fiber, (node) => {
     let hook = node.memoizedState;
     while (hook) {
@@ -50,7 +51,11 @@ function detachDeletedStateAndRefs(fiber: Fiber) {
       }
       hook = hook.next || null;
     }
+  });
+}
 
+function detachDeletedRefs(fiber: Fiber) {
+  visitSubtree(fiber, (node) => {
     if (node.dom && node.props.ref) setRef(node.props.ref, null);
   });
 }
@@ -90,10 +95,9 @@ function removeDeletedDom(fiber: Fiber) {
   }
 }
 
-function commitDeletion(fiber: Fiber) {
-  detachDeletedStateAndRefs(fiber);
+function commitDeletionMutation(fiber: Fiber) {
+  detachDeletedStateQueues(fiber);
   removeDeletedDom(fiber);
-  cleanupDeletedEffects(fiber);
 }
 
 function commitDomUpdates(fiber?: Fiber) {
@@ -169,6 +173,18 @@ function commitStateQueues(fiber?: Fiber) {
   });
 }
 
+function commitFinishedLanes(root: FiberRoot, finishedWork: Fiber) {
+  const finishedLanes = root.renderLanes;
+  root.finishedLanes = finishedLanes;
+  root.pendingLanes = removeLanes(root.pendingLanes, finishedLanes);
+  root.renderLanes = NoLane;
+
+  visitTree(finishedWork, (fiber) => {
+    fiber.lanes = removeLanes(fiber.lanes, finishedLanes);
+    fiber.childLanes = removeLanes(fiber.childLanes, finishedLanes);
+  });
+}
+
 function detachChangedRefs(fiber?: Fiber) {
   visitTree(fiber, (node) => {
     if (!node.dom) return;
@@ -238,14 +254,17 @@ export function commitRoot(root: FiberRoot) {
   if (!finishedWork) return;
 
   const deletions = [...root.deletions];
-  deletions.forEach(commitDeletion);
+  deletions.forEach(commitDeletionMutation);
   commitDomUpdates(finishedWork.child);
   syncHostChildren(finishedWork);
 
   root.current = finishedWork;
   commitStateQueues(finishedWork.child);
+  commitFinishedLanes(root, finishedWork);
+  deletions.forEach(detachDeletedRefs);
   detachChangedRefs(finishedWork.child);
   attachChangedRefs(finishedWork.child);
+  deletions.forEach(cleanupDeletedEffects);
   visitEffects(finishedWork.child, destroyChangedEffect);
   visitEffects(finishedWork.child, createChangedEffect);
   detachAlternates(finishedWork);

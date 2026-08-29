@@ -9,6 +9,7 @@ import {
 } from "./batching";
 import { performUnitOfWork } from "./reconciler";
 import { commitRoot } from "./commit";
+import { mergeLanes, NoLane, SyncLane } from "./lanes";
 
 type HostCallbackHandle =
   | { kind: "idle"; id: number }
@@ -54,9 +55,13 @@ function prepareFreshStack(root: FiberRoot) {
     __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
 
   root.renderVersion = root.updateVersion;
+  root.renderLanes = root.pendingLanes;
+  root.finishedLanes = NoLane;
   root.deletions = [];
   root.workInProgress = {
     root,
+    lanes: root.current?.lanes ?? NoLane,
+    childLanes: root.current?.childLanes ?? NoLane,
     dom: root.container,
     props: {
       children: normalizeChildren(root.element),
@@ -69,6 +74,8 @@ function prepareFreshStack(root: FiberRoot) {
 function abortRoot(root: FiberRoot, error: unknown) {
   root.workInProgress = null;
   root.nextUnitOfWork = null;
+  root.renderLanes = NoLane;
+  root.finishedLanes = NoLane;
   root.deletions = [];
   reportError(error);
 }
@@ -111,6 +118,7 @@ function performWorkUntilDeadline(deadline: IdleDeadline) {
 
     if (root.renderVersion !== root.updateVersion) {
       root.workInProgress = null;
+      root.renderLanes = NoLane;
       root.deletions = [];
       enqueueRoot(root);
       continue;
@@ -132,7 +140,7 @@ function performWorkUntilDeadline(deadline: IdleDeadline) {
       rootsByContainer.delete(root.container);
       allRoots.delete(root);
     } else if (root.renderVersion !== root.updateVersion) {
-      enqueueRoot(root);
+      scheduleBatchedRoot(root);
     }
   }
 
@@ -188,6 +196,10 @@ export function getOrCreateRoot(container: HTMLElement): FiberRoot {
     workInProgress: null,
     nextUnitOfWork: null,
     deletions: [],
+    pendingLanes: NoLane,
+    renderLanes: NoLane,
+    finishedLanes: NoLane,
+    callbackPriority: NoLane,
     updateVersion: 0,
     renderVersion: 0,
     status: "active",
@@ -206,6 +218,7 @@ export function updateContainer(element: ReactNode, root: FiberRoot) {
   }
 
   root.element = element;
+  root.pendingLanes = mergeLanes(root.pendingLanes, SyncLane);
   root.schedule();
 }
 
@@ -214,6 +227,7 @@ export function unmountContainer(root: FiberRoot) {
 
   root.status = "unmounting";
   root.element = null;
+  root.pendingLanes = mergeLanes(root.pendingLanes, SyncLane);
   root.updateVersion++;
   scheduleBatchedRoot(root);
 }
@@ -228,6 +242,10 @@ export function __resetSchedulerForTests() {
     root.current = null;
     root.workInProgress = null;
     root.nextUnitOfWork = null;
+    root.pendingLanes = NoLane;
+    root.renderLanes = NoLane;
+    root.finishedLanes = NoLane;
+    root.callbackPriority = NoLane;
     root.deletions = [];
   });
   allRoots.clear();

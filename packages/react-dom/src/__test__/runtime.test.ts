@@ -8,6 +8,7 @@ import {
 } from "vitest";
 import React, { useEffect, useMemo, useRef, useState } from "@koact/react";
 import ReactDOM, { createRoot } from "../index";
+import { DefaultLane, NoLane, SyncLane } from "../lanes";
 import { __resetSchedulerForTests, getOrCreateRoot } from "../scheduler";
 
 const h = React.createElement;
@@ -109,6 +110,69 @@ describe("Koact runtime", () => {
     expect(queue.fiber).toBeNull();
     expect(queue.root).toBeNull();
     expect(queue.pending).toBeNull();
+  });
+
+  it("tracks and clears lanes for root and state updates", async () => {
+    const container = document.createElement("div");
+    const internalRoot = getOrCreateRoot(container);
+    const root = createRoot(container);
+    let setCount!: (value: number) => void;
+
+    function Counter() {
+      const [count, updateCount] = useState(0);
+      setCount = updateCount;
+      return h("span", null, count);
+    }
+
+    root.render(h(Counter, null));
+    expect(internalRoot.pendingLanes).toBe(SyncLane);
+    await flushWork();
+
+    expect(internalRoot.pendingLanes).toBe(NoLane);
+    expect(internalRoot.renderLanes).toBe(NoLane);
+    expect(internalRoot.finishedLanes).toBe(SyncLane);
+    expect(internalRoot.callbackPriority).toBe(NoLane);
+
+    const currentRootFiber = internalRoot.current!;
+    const currentCounterFiber = currentRootFiber.child!;
+    setCount(1);
+
+    expect(currentCounterFiber.lanes).toBe(DefaultLane);
+    expect(currentRootFiber.childLanes).toBe(DefaultLane);
+    expect(internalRoot.pendingLanes).toBe(DefaultLane);
+    await flushWork();
+
+    expect(container.textContent).toBe("1");
+    expect(internalRoot.pendingLanes).toBe(NoLane);
+    expect(internalRoot.renderLanes).toBe(NoLane);
+    expect(internalRoot.finishedLanes).toBe(DefaultLane);
+    expect(internalRoot.current!.lanes).toBe(NoLane);
+    expect(internalRoot.current!.childLanes).toBe(NoLane);
+    expect(internalRoot.current!.child!.lanes).toBe(NoLane);
+  });
+
+  it("preserves same-lane updates scheduled during commit callbacks", async () => {
+    const container = document.createElement("div");
+    const internalRoot = getOrCreateRoot(container);
+    const root = createRoot(container);
+    let commitCount = 0;
+
+    function Counter() {
+      const [count, setCount] = useState(0);
+      useEffect(() => {
+        commitCount++;
+        if (count === 0) setCount(1);
+      }, [count]);
+      return h("span", null, count);
+    }
+
+    root.render(h(Counter, null));
+    await flushWork();
+
+    expect(container.textContent).toBe("1");
+    expect(commitCount).toBe(2);
+    expect(internalRoot.pendingLanes).toBe(NoLane);
+    expect(internalRoot.finishedLanes).toBe(DefaultLane);
   });
 
   it("automatically batches updates from one native event", async () => {
@@ -261,6 +325,7 @@ describe("Koact runtime", () => {
 
     try {
       const container = document.createElement("div");
+      const internalRoot = getOrCreateRoot(container);
       const root = createRoot(container);
       const renderedStates: number[] = [];
       let setCount!: (update: (count: number) => number) => void;
@@ -294,6 +359,15 @@ describe("Koact runtime", () => {
 
       setCount((count) => count + 1);
       await vi.advanceTimersByTimeAsync(0);
+      let deadlineChecks = 0;
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => (deadlineChecks++ === 0 ? 100 : 0),
+      });
+
+      expect(internalRoot.workInProgress).toBeNull();
+      expect(internalRoot.renderLanes).toBe(NoLane);
+
       idleCallbacks.shift()!({
         didTimeout: false,
         timeRemaining: () => 100,
@@ -534,6 +608,53 @@ describe("Koact runtime", () => {
     await flushWork();
     expect(cleanupA).toHaveBeenCalledTimes(1);
     expect(cleanupB).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves live updates scheduled by deletion callbacks", async () => {
+    const container = document.createElement("div");
+    const internalRoot = getOrCreateRoot(container);
+    const root = createRoot(container);
+    const cleanup = vi.fn();
+    let hide!: () => void;
+
+    function Removed(props: { increment: () => void }) {
+      useEffect(
+        () => () => {
+          cleanup();
+          props.increment();
+        },
+        [],
+      );
+      return h("span", {
+        ref: (node: HTMLElement | null) => {
+          if (!node) props.increment();
+        },
+      });
+    }
+
+    function App() {
+      const [visible, setVisible] = useState(true);
+      const [count, setCount] = useState(0);
+      hide = () => setVisible(false);
+      const increment = () => setCount((value) => value + 1);
+      return h(
+        "div",
+        null,
+        h("strong", null, count),
+        visible ? h(Removed, { increment }) : null,
+      );
+    }
+
+    root.render(h(App, null));
+    await flushWork();
+    hide();
+    await flushWork();
+
+    expect(container.querySelector("span")).toBeNull();
+    expect(container.querySelector("strong")?.textContent).toBe("2");
+    expect(cleanup).toHaveBeenCalledTimes(1);
+    expect(internalRoot.pendingLanes).toBe(NoLane);
+    expect(internalRoot.finishedLanes).toBe(DefaultLane);
   });
 
   it("does not reuse an obsolete effect cleanup", async () => {

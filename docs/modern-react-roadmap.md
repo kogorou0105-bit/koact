@@ -211,7 +211,7 @@ flush microtask 和 Host Callback 的职责必须分开并可测试。
 
 ### 6.1 Lane 模型
 
-实施状态：Lane 常量与纯位运算工具已完成；Root/Fiber 字段、Lane 传播和调度尚未开始。
+实施状态：Lane 常量与纯位运算工具已完成。
 
 扩展阶段 A 创建的 `packages/react-dom/src/lanes.ts`。第一版只保留能解释核心原理的最小集合：
 
@@ -238,6 +238,9 @@ isHigherPriorityLane(a, b)
 优先级顺序：`SyncLane > DefaultLane > TransitionLane`。
 
 ### 6.2 Root 与 Fiber 字段
+
+实施状态：Root/Fiber Lane 字段、committed Fiber 到 Root 的 Lane 冒泡，以及本轮 Lane 的
+Render/Commit 生命周期已完成。current/WIP 双向配对与按优先级调度尚未开始。
 
 `FiberRoot` 增加：
 

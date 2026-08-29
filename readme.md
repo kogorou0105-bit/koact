@@ -88,7 +88,7 @@ pnpm check
 pnpm check:core
 ```
 
-当前基线为 6 个测试文件、40 个测试，覆盖 Lane 位运算、批处理、中断恢复、多 Root 隔离、Keyed DOM identity、effect/ref 生命周期及异常隔离。Vitest 全局覆盖率门槛为：
+当前基线为 6 个测试文件、44 个测试，覆盖 Lane 位运算与传播、批处理、中断恢复、多 Root 隔离、Keyed DOM identity、effect/ref 生命周期及异常隔离。Vitest 全局覆盖率门槛为：
 
 | Statements | Branches | Functions | Lines |
 | ---: | ---: | ---: | ---: |
