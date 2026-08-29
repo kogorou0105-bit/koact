@@ -1,4 +1,8 @@
+import { __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED } from "@koact/react";
 import type { Fiber, FiberRoot } from "./types";
+
+const { SharedInternals } =
+  __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
 
 export type Lane = number;
 export type Lanes = number;
@@ -28,6 +32,12 @@ export function isHigherPriorityLane(first: Lane, second: Lane): boolean {
   if (first === NoLane) return false;
   if (second === NoLane) return true;
   return first < second;
+}
+
+export function requestUpdateLane(): Lane {
+  return SharedInternals.currentTransition
+    ? TransitionLane
+    : DefaultLane;
 }
 
 export function markUpdateLaneFromFiberToRoot(

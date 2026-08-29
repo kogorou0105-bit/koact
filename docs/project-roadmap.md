@@ -61,9 +61,9 @@ Lanes、Update Rebase 和 Fiber Bailout 的底层设计见[现代更新机制实
 - [x] 增加 `SyncLane`、`DefaultLane`、`TransitionLane` 与 Lane 位运算工具。
 - [x] 为 Fiber 增加 `lanes/childLanes`。
 - [x] 为 FiberRoot 增加 `pendingLanes/renderLanes/finishedLanes/callbackPriority`。
-- [ ] 实现 `requestUpdateLane`，让每个 StateUpdate 在入队时确定优先级。
+- [x] 实现 `requestUpdateLane`，让每个 StateUpdate 在入队时确定优先级。
 - [x] 实现 `markUpdateLaneFromFiberToRoot`，沿 parent 路径冒泡子树优先级。
-- [ ] 在 `@koact/react` 导出 `startTransition`，并通过共享内部状态选择 `TransitionLane`。
+- [x] 在 `@koact/react` 导出 `startTransition`，并通过共享内部状态选择 `TransitionLane`。
 - [x] 让 UpdateQueue 按 `renderLanes` 跳过低优更新，并正确保留和重放 base queue。
 - [ ] 调度器优先选择最高优先级 Root/Lane，而不是只按 FIFO 执行。
 - [ ] 高优更新到来时中断低优 WIP，同时保留未完成的低优更新。
@@ -72,7 +72,7 @@ Lanes、Update Rebase 和 Fiber Bailout 的底层设计见[现代更新机制实
 
 ### 必测场景
 
-- [ ] Lane 合并、移除、包含判断和最高优先级选择。
+- [x] Lane 合并、移除、包含判断和最高优先级选择。
 - [ ] Default Render 跳过 Transition update。
 - [ ] `Default +1 → Transition *10 → Default +1` 最终从 `2` Rebase 为 `11`。
 - [ ] Transition Render 被 Default update 打断，低优 action 不丢失、不重复。
@@ -84,7 +84,7 @@ Lanes、Update Rebase 和 Fiber Bailout 的底层设计见[现代更新机制实
 ### 完成标准
 
 - [ ] 每个 Update、Fiber 和 Root 的 Lane 都可以被测试读取和断言。
-- [ ] `startTransition` 有公开 API、类型声明和使用示例。
+- [x] `startTransition` 有公开 API、类型声明和使用示例。
 - [ ] 调度测试使用可控 deadline，不依赖固定 sleep。
 - [ ] 原有批处理、Hooks、Keyed Diff、ref/effect 和卸载测试全部保持通过。
 - [ ] `pnpm check` 通过，覆盖率不低于仓库门槛。

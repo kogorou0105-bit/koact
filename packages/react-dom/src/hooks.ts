@@ -5,7 +5,7 @@ import type {
   RefObject,
   SetStateAction,
 } from "@koact/react";
-import { DefaultLane, markUpdateLaneFromFiberToRoot } from "./lanes";
+import { markUpdateLaneFromFiberToRoot, requestUpdateLane } from "./lanes";
 import type { Fiber, FiberRoot, Hook, StateQueue } from "./types";
 import {
   enqueueUpdate,
@@ -118,8 +118,9 @@ export function useState<T>(
       ) {
         return;
       }
-      enqueueUpdate(queue, action, DefaultLane);
-      markUpdateLaneFromFiberToRoot(queue.fiber, DefaultLane);
+      const lane = requestUpdateLane();
+      enqueueUpdate(queue, action, lane);
+      markUpdateLaneFromFiberToRoot(queue.fiber, lane);
       queue.root.schedule();
     };
     hook.queue = queue;

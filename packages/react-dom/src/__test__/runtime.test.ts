@@ -6,9 +6,20 @@ import {
   it,
   vi,
 } from "vitest";
-import React, { useEffect, useMemo, useRef, useState } from "@koact/react";
+import React, {
+  startTransition,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "@koact/react";
 import ReactDOM, { createRoot } from "../index";
-import { DefaultLane, NoLane, SyncLane } from "../lanes";
+import {
+  DefaultLane,
+  NoLane,
+  SyncLane,
+  TransitionLane,
+} from "../lanes";
 import { __resetSchedulerForTests, getOrCreateRoot } from "../scheduler";
 
 const h = React.createElement;
@@ -149,6 +160,88 @@ describe("Koact runtime", () => {
     expect(internalRoot.current!.lanes).toBe(NoLane);
     expect(internalRoot.current!.childLanes).toBe(NoLane);
     expect(internalRoot.current!.child!.lanes).toBe(NoLane);
+  });
+
+  it("assigns transition lanes only to updates inside the scope", async () => {
+    const container = document.createElement("div");
+    const internalRoot = getOrCreateRoot(container);
+    const root = createRoot(container);
+    let setCount!: (value: number) => void;
+
+    function Counter() {
+      const [count, updateCount] = useState(0);
+      setCount = updateCount;
+      return h("span", null, count);
+    }
+
+    root.render(h(Counter, null));
+    await flushWork();
+
+    const queue = internalRoot.current!.child!.memoizedState!.queue!;
+    startTransition(() => setCount(1));
+
+    expect(queue.pending?.lane).toBe(TransitionLane);
+    expect(internalRoot.pendingLanes).toBe(TransitionLane);
+    await flushWork();
+    expect(container.textContent).toBe("1");
+    expect(internalRoot.finishedLanes).toBe(TransitionLane);
+
+    setCount(2);
+    expect(queue.pending?.lane).toBe(DefaultLane);
+    expect(internalRoot.pendingLanes).toBe(DefaultLane);
+    await flushWork();
+    expect(container.textContent).toBe("2");
+    expect(internalRoot.finishedLanes).toBe(DefaultLane);
+  });
+
+  it("preserves mixed update lanes and their insertion order", async () => {
+    const container = document.createElement("div");
+    const internalRoot = getOrCreateRoot(container);
+    const root = createRoot(container);
+    let updateCount!: (update: (value: number) => number) => void;
+
+    function Counter() {
+      const [count, setCount] = useState(1);
+      updateCount = setCount;
+      return h("span", null, count);
+    }
+
+    root.render(h(Counter, null));
+    await flushWork();
+
+    updateCount((value) => value + 1);
+    startTransition(() => updateCount((value) => value * 10));
+    updateCount((value) => value + 1);
+
+    const queue = internalRoot.current!.child!.memoizedState!.queue!;
+    expect(queue.pending?.lane).toBe(DefaultLane);
+    expect(queue.pending?.next.lane).toBe(DefaultLane);
+    expect(queue.pending?.next.next.lane).toBe(TransitionLane);
+    expect(internalRoot.pendingLanes).toBe(
+      DefaultLane | TransitionLane,
+    );
+
+    await flushWork();
+    expect(container.textContent).toBe("21");
+    expect(internalRoot.finishedLanes).toBe(
+      DefaultLane | TransitionLane,
+    );
+  });
+
+  it("keeps explicit root updates synchronous inside transitions", async () => {
+    const container = document.createElement("div");
+    const internalRoot = getOrCreateRoot(container);
+    const root = createRoot(container);
+
+    startTransition(() => root.render(h("span", null, "sync")));
+    expect(internalRoot.pendingLanes).toBe(SyncLane);
+    await flushWork();
+    expect(container.textContent).toBe("sync");
+
+    startTransition(() => root.unmount());
+    expect(internalRoot.pendingLanes).toBe(SyncLane);
+    await flushWork();
+    expect(container.textContent).toBe("");
   });
 
   it("preserves same-lane updates scheduled during commit callbacks", async () => {

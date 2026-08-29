@@ -22,6 +22,7 @@ export interface Dispatcher {
 
 export const SharedInternals = {
   currentDispatcher: null as Dispatcher | null,
+  currentTransition: null as object | null,
 };
 
 export function resolveDispatcher() {

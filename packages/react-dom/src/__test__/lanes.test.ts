@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { startTransition } from "@koact/react";
 import {
   DefaultLane,
   getHighestPriorityLane,
@@ -8,6 +9,7 @@ import {
   mergeLanes,
   NoLane,
   removeLanes,
+  requestUpdateLane,
   SyncLane,
   TransitionLane,
 } from "../lanes";
@@ -91,6 +93,16 @@ describe("lanes", () => {
     expect(isHigherPriorityLane(DefaultLane, NoLane)).toBe(true);
     expect(isHigherPriorityLane(NoLane, DefaultLane)).toBe(false);
     expect(isHigherPriorityLane(DefaultLane, DefaultLane)).toBe(false);
+  });
+
+  it("selects an update lane from the current transition scope", () => {
+    expect(requestUpdateLane()).toBe(DefaultLane);
+
+    startTransition(() => {
+      expect(requestUpdateLane()).toBe(TransitionLane);
+    });
+
+    expect(requestUpdateLane()).toBe(DefaultLane);
   });
 
   it("marks an update from its source fiber through the root", () => {

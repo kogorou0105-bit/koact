@@ -67,10 +67,14 @@ pnpm dev:todo
 
 ```tsx
 import React from "@koact/react";
+import { startTransition } from "@koact/react";
 import { createRoot } from "@koact/react-dom";
 
 const root = createRoot(document.getElementById("root")!);
 root.render(<App />);
+
+// scope 同步执行期间产生的 state 更新会标记为 TransitionLane。
+startTransition(() => setFilter(nextFilter));
 
 // 卸载时会清理 state queue、effects 和 refs。
 root.unmount();
@@ -88,7 +92,7 @@ pnpm check
 pnpm check:core
 ```
 
-当前基线为 6 个测试文件、44 个测试，覆盖 Lane 位运算与传播、批处理、中断恢复、多 Root 隔离、Keyed DOM identity、effect/ref 生命周期及异常隔离。Vitest 全局覆盖率门槛为：
+当前基线为 7 个测试文件、52 个测试，覆盖 Transition Lane 分配、Lane 位运算与传播、批处理、中断恢复、多 Root 隔离、Keyed DOM identity、effect/ref 生命周期及异常隔离。Vitest 全局覆盖率门槛为：
 
 | Statements | Branches | Functions | Lines |
 | ---: | ---: | ---: | ---: |
@@ -104,7 +108,7 @@ GitHub Actions 会在 push 和 pull request 中使用冻结锁文件重复执行
 
 ## 当前边界
 
-- 已定义 `SyncLane`、`DefaultLane` 和 `TransitionLane`，但运行时仍只分配 `DefaultLane`，尚未实现 `startTransition` 和真正的高优更新抢占。
+- `startTransition` 已能为同步 scope 内的 state 更新分配 `TransitionLane`，但调度器尚未按 Lane 拆分 Render，也未实现真正的高优更新抢占。
 - 尚未实现 Suspense、Error Boundary、Context、SSR、Hydration 或 Server Components。
 - `useEffect` 在 Commit 中同步执行，尚未拆分 layout 与 passive effect 阶段。
 - DOM 事件使用逐节点原生监听，尚未实现 Root 事件委托和合成事件。

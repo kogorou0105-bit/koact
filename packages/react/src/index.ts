@@ -120,6 +120,16 @@ export function useRef<T>(initial: T) {
   return resolveDispatcher().useRef(initial);
 }
 
+export function startTransition(scope: () => void): void {
+  const previousTransition = SharedInternals.currentTransition;
+  SharedInternals.currentTransition = {};
+  try {
+    scope();
+  } finally {
+    SharedInternals.currentTransition = previousTransition;
+  }
+}
+
 export const __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED = {
   SharedInternals,
   normalizeChildren,
@@ -141,6 +151,7 @@ const React = {
   useMemo,
   useCallback,
   useRef,
+  startTransition,
   __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED,
 };
 

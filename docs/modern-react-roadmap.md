@@ -290,6 +290,10 @@ current.alternate = workInProgress
 
 ### 6.3 startTransition
 
+实施状态：`startTransition`、同步 Transition 上下文和 `requestUpdateLane` 已完成。更新能够
+携带 `DefaultLane` 或 `TransitionLane`，显式 Root 更新保持 `SyncLane`；按 Lane 拆分 Render
+和高优抢占仍属于下一阶段。
+
 在 `@koact/react` 导出：
 
 ```ts
