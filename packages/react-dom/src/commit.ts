@@ -1,5 +1,5 @@
 import { updateDom } from "./dom";
-import { KoactEvents } from "./events";
+import { getEventTimestamp, KoactEvents } from "./events";
 import { NoLane, removeLanes } from "./lanes";
 import type { Fiber, FiberRoot, Hook } from "./types";
 
@@ -275,7 +275,13 @@ export function commitRoot(root: FiberRoot) {
   root.nextUnitOfWork = null;
   root.deletions = [];
 
+  const timestamp = getEventTimestamp();
   KoactEvents.emit("commit", {
+    rootId: root.id,
+    lane: root.finishedLanes,
+    timestamp,
+    elapsedTime: Math.max(0, timestamp - root.renderStartTime),
+    processedFibers: root.processedFibers,
     root: finishedWork,
     deletions,
   });

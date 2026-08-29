@@ -9,6 +9,7 @@ import type { FiberRoot } from "../types";
 
 function createTestRoot(flush: () => void): FiberRoot {
   return {
+    id: 1,
     container: document.createElement("div"),
     element: null,
     current: null,
@@ -22,6 +23,8 @@ function createTestRoot(flush: () => void): FiberRoot {
     callbackPriority: NoLane,
     updateVersion: 0,
     renderVersion: 0,
+    renderStartTime: 0,
+    processedFibers: 0,
     status: "active",
     schedule: vi.fn(),
     flush,

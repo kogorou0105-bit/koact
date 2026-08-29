@@ -17,6 +17,7 @@ import type { Fiber, FiberRoot } from "../types";
 
 function createRoot(): FiberRoot {
   return {
+    id: 1,
     container: document.createElement("div"),
     element: null,
     current: null,
@@ -30,6 +31,8 @@ function createRoot(): FiberRoot {
     callbackPriority: NoLane,
     updateVersion: 0,
     renderVersion: 0,
+    renderStartTime: 0,
+    processedFibers: 0,
     status: "active",
     schedule: vi.fn(),
     flush: vi.fn(),

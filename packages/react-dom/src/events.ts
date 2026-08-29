@@ -1,37 +1,81 @@
-// packages/react-dom/src/events.ts
+import type { Lane } from "./lanes";
+import type { Fiber } from "./types";
 
-// 定义事件类型
-type EventMap = {
-  commit: any; // 这里可以是 FiberRoot 类型
-};
+export interface SchedulerEvent {
+  rootId: number;
+  lane: Lane;
+  timestamp: number;
+  processedFibers: number;
+}
+
+export interface TimedRenderEvent extends SchedulerEvent {
+  elapsedTime: number;
+}
+
+export interface RenderAbortEvent extends TimedRenderEvent {
+  nextLane: Lane;
+  reason: "error" | "higher-priority-update" | "same-priority-update";
+}
+
+export interface CommitEvent extends TimedRenderEvent {
+  root: Fiber;
+  deletions: Fiber[];
+}
+
+export interface KoactEventMap {
+  "update-scheduled": SchedulerEvent;
+  "render-start": SchedulerEvent;
+  "render-yield": TimedRenderEvent;
+  "render-abort": RenderAbortEvent;
+  commit: CommitEvent;
+}
 
 type Callback<T> = (data: T) => void;
 
 class EventEmitter {
-  private listeners: Map<keyof EventMap, Set<Callback<any>>> = new Map();
+  private listeners = new Map<
+    keyof KoactEventMap,
+    Set<Callback<KoactEventMap[keyof KoactEventMap]>>
+  >();
 
-  // 订阅事件
-  on<K extends keyof EventMap>(event: K, cb: Callback<EventMap[K]>) {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, new Set());
+  on<Event extends keyof KoactEventMap>(
+    event: Event,
+    callback: Callback<KoactEventMap[Event]>,
+  ) {
+    let callbacks = this.listeners.get(event);
+    if (!callbacks) {
+      callbacks = new Set();
+      this.listeners.set(event, callbacks);
     }
-    this.listeners.get(event)!.add(cb);
+    callbacks.add(callback as Callback<KoactEventMap[keyof KoactEventMap]>);
+
+    return () => {
+      callbacks.delete(
+        callback as Callback<KoactEventMap[keyof KoactEventMap]>,
+      );
+      if (callbacks.size === 0) this.listeners.delete(event);
+    };
   }
 
-  // 触发事件
-  emit<K extends keyof EventMap>(event: K, data: EventMap[K]) {
+  emit<Event extends keyof KoactEventMap>(
+    event: Event,
+    data: KoactEventMap[Event],
+  ) {
     const callbacks = this.listeners.get(event);
-    if (callbacks) {
-      callbacks.forEach((cb) => {
-        try {
-          cb(data);
-        } catch (error) {
-          console.error(`[Koact] ${String(event)} listener failed.`, error);
-        }
-      });
-    }
+    callbacks?.forEach((callback) => {
+      try {
+        callback(data);
+      } catch (error) {
+        console.error(`[Koact] ${String(event)} listener failed.`, error);
+      }
+    });
   }
 }
 
-// 导出一个单例
+export function getEventTimestamp() {
+  return typeof globalThis.performance?.now === "function"
+    ? globalThis.performance.now()
+    : Date.now();
+}
+
 export const KoactEvents = new EventEmitter();

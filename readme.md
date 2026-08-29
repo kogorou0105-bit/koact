@@ -18,7 +18,7 @@ Koact 是一个使用 TypeScript 从零实现的 React-like Runtime，用于研�
 | State | O(1) 入队的环形 UpdateQueue、函数式更新、按 Lane 跳过与 Rebase |
 | Batching | 同一 JavaScript 回调中的多次更新只安排一次 Root flush |
 | Commit | DOM 更新与排序、effect cleanup/setup、ref detach/attach、完整卸载 |
-| DevTools | Commit 探针与 Fiber 树可视化 Vite 插件 |
+| DevTools | 类型化调度事件流、Commit 探针与 Fiber 树可视化 Vite 插件 |
 
 ## 工作流程
 
@@ -92,7 +92,7 @@ pnpm check
 pnpm check:core
 ```
 
-当前基线为 7 个测试文件、58 个测试，覆盖按 Lane 分轮 Render、抢占与 Rebase、`childLanes` 聚合、跨 Root 优先级和公平轮转、批处理、中断恢复、Keyed DOM identity、effect/ref 生命周期及异常隔离。Vitest 全局覆盖率门槛为：
+当前基线为 8 个测试文件、63 个测试，覆盖调度事件、按 Lane 分轮 Render、抢占与 Rebase、`childLanes` 聚合、跨 Root 优先级和公平轮转、批处理、中断恢复、Keyed DOM identity、effect/ref 生命周期及异常隔离。Vitest 全局覆盖率门槛为：
 
 | Statements | Branches | Functions | Lines |
 | ---: | ---: | ---: | ---: |

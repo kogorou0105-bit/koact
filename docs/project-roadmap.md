@@ -103,13 +103,13 @@ docs: document concurrent scheduling semantics
 
 ## 5. P1.5：调度可观测性与性能证据
 
-状态：待开始，依赖 P1
+状态：进行中
 
 ### 实现清单
 
-- [ ] 增加 `update-scheduled`、`render-start`、`render-yield`、`render-abort` 和 `commit` 事件。
-- [ ] 事件包含 Root 标识、Lane、时间戳和本轮处理 Fiber 数量。
-- [ ] 保证 DevTools 监听器异常不会影响调度和 Commit。
+- [x] 增加 `update-scheduled`、`render-start`、`render-yield`、`render-abort` 和 `commit` 事件。
+- [x] 事件包含 Root 标识、Lane、时间戳和本轮处理 Fiber 数量。
+- [x] 保证 DevTools 监听器异常不会影响调度和 Commit。
 - [ ] 将现有 Fiber 树面板升级为调度时间线。
 - [ ] 展示每次更新的 Lane、Yield、Abort、Commit 和耗时。
 - [ ] 新增 `examples/concurrent-lab`，使用 5000 项列表演示输入更新和 Transition 过滤。

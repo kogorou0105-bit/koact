@@ -7,6 +7,7 @@ export type StateAction<T> = T | ((previousState: T) => T);
 export type StateDispatch<T> = (action: StateAction<T>) => void;
 
 export interface FiberRoot {
+  id: number;
   container: HTMLElement;
   element: ReactNode;
   current: Fiber | null;
@@ -20,6 +21,8 @@ export interface FiberRoot {
   callbackPriority: Lane;
   updateVersion: number;
   renderVersion: number;
+  renderStartTime: number;
+  processedFibers: number;
   status: RootStatus;
   schedule: (lane: Lane) => void;
   flush: () => void;

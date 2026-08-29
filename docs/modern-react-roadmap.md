@@ -374,7 +374,7 @@ WIP 被废弃或成功 Commit 后清除临时引用。Commit 成功后只清理�
 
 ### 6.6 阶段 B 调度事件
 
-为了测试并服务后续 DevTools，事件总线增加：
+事件总线已增加以下调度生命周期事件，并将其转发给 DevTools Hook：
 
 ```text
 update-scheduled(root, lane)
@@ -384,7 +384,8 @@ render-abort(root, oldLanes, nextLane)
 commit(root, finishedLanes)
 ```
 
-事件只描述已经发生的事实，监听器异常不得改变调度结果。
+事件携带稳定 Root ID、Lane、时间戳和本轮处理 Fiber 数量；Yield、Abort 和 Commit 还包含
+自 `render-start` 起算的墙钟耗时。事件只描述已经发生的事实，监听器异常不会改变调度结果。
 
 ### 6.7 阶段 B 测试
 

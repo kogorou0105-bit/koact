@@ -10,6 +10,7 @@ import {
 import { performUnitOfWork } from "./reconciler";
 import { commitRoot } from "./commit";
 import { resetWorkInProgressStateQueues } from "./hooks";
+import { getEventTimestamp, KoactEvents } from "./events";
 import {
   getHighestPriorityLane,
   isHigherPriorityLane,
@@ -31,6 +32,7 @@ let rootsByContainer = new WeakMap<HTMLElement, FiberRoot>();
 let hostCallback: HostCallbackHandle | null = null;
 let hostCallbackPriority: Lane = NoLane;
 let hostCallbackGeneration = 0;
+let nextRootId = 1;
 
 function reportError(error: unknown) {
   if (typeof globalThis.reportError === "function") {
@@ -89,16 +91,40 @@ function scheduleUpdateOnRoot(root: FiberRoot, lane: Lane) {
     );
   }
   root.updateVersion++;
+  const timestamp = getEventTimestamp();
+  KoactEvents.emit("update-scheduled", {
+    rootId: root.id,
+    lane,
+    timestamp,
+    processedFibers: 0,
+  });
   scheduleBatchedRoot(root);
 }
 
-function shouldRestartRender(root: FiberRoot) {
+function getRenderRestartLane(root: FiberRoot) {
   const updatedLane = getHighestPriorityLane(root.interleavedUpdatedLanes);
-  return (
-    updatedLane !== NoLane &&
+  return updatedLane !== NoLane &&
     (updatedLane === root.renderLanes ||
       isHigherPriorityLane(updatedLane, root.renderLanes))
-  );
+    ? updatedLane
+    : NoLane;
+}
+
+function emitRenderAbort(
+  root: FiberRoot,
+  nextLane: Lane,
+  reason: "error" | "higher-priority-update" | "same-priority-update",
+) {
+  const timestamp = getEventTimestamp();
+  KoactEvents.emit("render-abort", {
+    rootId: root.id,
+    lane: root.renderLanes,
+    nextLane,
+    reason,
+    timestamp,
+    elapsedTime: Math.max(0, timestamp - root.renderStartTime),
+    processedFibers: root.processedFibers,
+  });
 }
 
 function discardWorkInProgress(root: FiberRoot) {
@@ -117,6 +143,8 @@ function prepareFreshStack(root: FiberRoot) {
   root.renderLanes = getHighestPriorityLane(root.pendingLanes);
   root.finishedLanes = NoLane;
   root.interleavedUpdatedLanes = NoLane;
+  root.renderStartTime = getEventTimestamp();
+  root.processedFibers = 0;
   root.deletions = [];
   root.workInProgress = {
     root,
@@ -129,9 +157,16 @@ function prepareFreshStack(root: FiberRoot) {
     alternate: root.current,
   };
   root.nextUnitOfWork = root.workInProgress;
+  KoactEvents.emit("render-start", {
+    rootId: root.id,
+    lane: root.renderLanes,
+    timestamp: root.renderStartTime,
+    processedFibers: 0,
+  });
 }
 
 function abortRoot(root: FiberRoot, error: unknown) {
+  emitRenderAbort(root, NoLane, "error");
   discardWorkInProgress(root);
   root.finishedLanes = NoLane;
   root.interleavedUpdatedLanes = NoLane;
@@ -154,7 +189,15 @@ function performWorkUntilDeadline(
 
     let didError = false;
     try {
-      if (root.nextUnitOfWork && shouldRestartRender(root)) {
+      const restartLane = getRenderRestartLane(root);
+      if (root.nextUnitOfWork && restartLane !== NoLane) {
+        emitRenderAbort(
+          root,
+          restartLane,
+          restartLane === root.renderLanes
+            ? "same-priority-update"
+            : "higher-priority-update",
+        );
         discardWorkInProgress(root);
       }
       if (!root.nextUnitOfWork) prepareFreshStack(root);
@@ -163,6 +206,7 @@ function performWorkUntilDeadline(
         root.nextUnitOfWork &&
         (!didPerformWork || deadline.timeRemaining() >= 1)
       ) {
+        root.processedFibers++;
         root.nextUnitOfWork = performUnitOfWork(root, root.nextUnitOfWork);
         didPerformWork = true;
       }
@@ -174,13 +218,29 @@ function performWorkUntilDeadline(
     if (didError) continue;
 
     if (root.nextUnitOfWork) {
+      const timestamp = getEventTimestamp();
+      KoactEvents.emit("render-yield", {
+        rootId: root.id,
+        lane: root.renderLanes,
+        timestamp,
+        elapsedTime: Math.max(0, timestamp - root.renderStartTime),
+        processedFibers: root.processedFibers,
+      });
       enqueueRoot(root);
       continue;
     }
 
     if (!root.workInProgress) continue;
 
-    if (shouldRestartRender(root)) {
+    const restartLane = getRenderRestartLane(root);
+    if (restartLane !== NoLane) {
+      emitRenderAbort(
+        root,
+        restartLane,
+        restartLane === root.renderLanes
+          ? "same-priority-update"
+          : "higher-priority-update",
+      );
       discardWorkInProgress(root);
       enqueueRoot(root);
       continue;
@@ -302,6 +362,7 @@ export function getOrCreateRoot(container: HTMLElement): FiberRoot {
 
   let root: FiberRoot;
   root = {
+    id: nextRootId++,
     container,
     element: null,
     current: null,
@@ -315,6 +376,8 @@ export function getOrCreateRoot(container: HTMLElement): FiberRoot {
     callbackPriority: NoLane,
     updateVersion: 0,
     renderVersion: 0,
+    renderStartTime: 0,
+    processedFibers: 0,
     status: "active",
     schedule: (lane) => scheduleUpdateOnRoot(root, lane),
     flush: () => enqueueRoot(root),
@@ -360,6 +423,8 @@ export function __resetSchedulerForTests() {
     root.finishedLanes = NoLane;
     root.interleavedUpdatedLanes = NoLane;
     root.callbackPriority = NoLane;
+    root.renderStartTime = 0;
+    root.processedFibers = 0;
     root.deletions = [];
   });
   allRoots.clear();
