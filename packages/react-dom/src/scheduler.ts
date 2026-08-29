@@ -50,10 +50,22 @@ function enqueueRoot(root: FiberRoot) {
   requestHostCallback();
 }
 
-function dequeueRoot() {
-  const root = scheduledRoots.shift() || null;
+function getNextRoot() {
+  if (scheduledRoots.length === 0) return null;
+
+  let nextIndex = 0;
+  let nextLane = getHighestPriorityLane(scheduledRoots[0].pendingLanes);
+  for (let index = 1; index < scheduledRoots.length; index++) {
+    const lane = getHighestPriorityLane(scheduledRoots[index].pendingLanes);
+    if (isHigherPriorityLane(lane, nextLane)) {
+      nextIndex = index;
+      nextLane = lane;
+    }
+  }
+
+  const [root] = scheduledRoots.splice(nextIndex, 1);
   if (root) scheduledRootSet.delete(root);
-  return root;
+  return root || null;
 }
 
 function scheduleUpdateOnRoot(root: FiberRoot, lane: Lane) {
@@ -120,7 +132,7 @@ function performWorkUntilDeadline(deadline: IdleDeadline) {
     scheduledRoots.length > 0 &&
     (!didPerformWork || deadline.timeRemaining() >= 1)
   ) {
-    const root = dequeueRoot();
+    const root = getNextRoot();
     if (!root || root.status === "unmounted") continue;
 
     let didError = false;

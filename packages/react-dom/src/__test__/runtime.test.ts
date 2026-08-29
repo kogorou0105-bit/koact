@@ -484,6 +484,168 @@ describe("Koact runtime", () => {
     expect(commits).toEqual([2, 2]);
   });
 
+  it("commits a later sync root before an earlier transition root", async () => {
+    const previousRequestIdleCallback = globalThis.requestIdleCallback;
+    const previousCancelIdleCallback = globalThis.cancelIdleCallback;
+    const idleCallbacks: IdleRequestCallback[] = [];
+    let callbackId = 0;
+
+    globalThis.requestIdleCallback = vi.fn((callback) => {
+      idleCallbacks.push(callback);
+      return ++callbackId;
+    });
+    globalThis.cancelIdleCallback = vi.fn();
+
+    try {
+      const transitionContainer = document.createElement("div");
+      const syncContainer = document.createElement("div");
+      const transitionRoot = createRoot(transitionContainer);
+      const syncRoot = createRoot(syncContainer);
+      const commitOrder: string[] = [];
+      let setTransitionCount!: (value: number) => void;
+
+      function TransitionCounter() {
+        const [count, setCount] = useState(0);
+        setTransitionCount = setCount;
+        useEffect(() => {
+          commitOrder.push(`transition:${count}`);
+        }, [count]);
+        return h("span", null, count);
+      }
+
+      function SyncValue(props: { value: number }) {
+        useEffect(() => {
+          commitOrder.push(`sync:${props.value}`);
+        }, [props.value]);
+        return h("span", null, props.value);
+      }
+
+      transitionRoot.render(h(TransitionCounter, null));
+      syncRoot.render(h(SyncValue, { value: 0 }));
+      await vi.advanceTimersByTimeAsync(0);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+      commitOrder.length = 0;
+
+      startTransition(() => setTransitionCount(1));
+      await vi.advanceTimersByTimeAsync(0);
+      let deadlineChecks = 0;
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => (deadlineChecks++ === 0 ? 100 : 0),
+      });
+
+      expect(commitOrder).toEqual([]);
+      expect(transitionContainer.textContent).toBe("0");
+
+      syncRoot.render(h(SyncValue, { value: 1 }));
+      await vi.advanceTimersByTimeAsync(0);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+
+      expect(commitOrder).toEqual(["sync:1", "transition:1"]);
+      expect(syncContainer.textContent).toBe("1");
+      expect(transitionContainer.textContent).toBe("1");
+    } finally {
+      __resetSchedulerForTests();
+      if (previousRequestIdleCallback) {
+        globalThis.requestIdleCallback = previousRequestIdleCallback;
+      } else {
+        Reflect.deleteProperty(globalThis, "requestIdleCallback");
+      }
+      if (previousCancelIdleCallback) {
+        globalThis.cancelIdleCallback = previousCancelIdleCallback;
+      } else {
+        Reflect.deleteProperty(globalThis, "cancelIdleCallback");
+      }
+    }
+  });
+
+  it("round-robins roots with equal lanes after yielding", async () => {
+    const previousRequestIdleCallback = globalThis.requestIdleCallback;
+    const previousCancelIdleCallback = globalThis.cancelIdleCallback;
+    const idleCallbacks: IdleRequestCallback[] = [];
+    let callbackId = 0;
+
+    globalThis.requestIdleCallback = vi.fn((callback) => {
+      idleCallbacks.push(callback);
+      return ++callbackId;
+    });
+    globalThis.cancelIdleCallback = vi.fn();
+
+    try {
+      const firstContainer = document.createElement("div");
+      const secondContainer = document.createElement("div");
+      const firstInternalRoot = getOrCreateRoot(firstContainer);
+      const secondInternalRoot = getOrCreateRoot(secondContainer);
+      const firstRoot = createRoot(firstContainer);
+      const secondRoot = createRoot(secondContainer);
+      const commitOrder: string[] = [];
+      let setFirst!: (value: number) => void;
+      let setSecond!: (value: number) => void;
+
+      function Counter(props: { name: string }) {
+        const [count, setCount] = useState(0);
+        if (props.name === "first") setFirst = setCount;
+        else setSecond = setCount;
+        useEffect(() => {
+          commitOrder.push(props.name);
+        }, [count]);
+        return h("span", null, count);
+      }
+
+      firstRoot.render(h(Counter, { name: "first" }));
+      secondRoot.render(h(Counter, { name: "second" }));
+      await vi.advanceTimersByTimeAsync(0);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+      commitOrder.length = 0;
+
+      setFirst(1);
+      setSecond(1);
+      await vi.advanceTimersByTimeAsync(0);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 0,
+      });
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 0,
+      });
+
+      expect(firstInternalRoot.workInProgress).not.toBeNull();
+      expect(secondInternalRoot.workInProgress).not.toBeNull();
+      expect(commitOrder).toEqual([]);
+
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+
+      expect(commitOrder).toEqual(["first", "second"]);
+      expect(firstContainer.textContent).toBe("1");
+      expect(secondContainer.textContent).toBe("1");
+    } finally {
+      __resetSchedulerForTests();
+      if (previousRequestIdleCallback) {
+        globalThis.requestIdleCallback = previousRequestIdleCallback;
+      } else {
+        Reflect.deleteProperty(globalThis, "requestIdleCallback");
+      }
+      if (previousCancelIdleCallback) {
+        globalThis.cancelIdleCallback = previousCancelIdleCallback;
+      } else {
+        Reflect.deleteProperty(globalThis, "cancelIdleCallback");
+      }
+    }
+  });
+
   it("restarts a yielded render when a same-lane update arrives", async () => {
     const previousRequestIdleCallback = globalThis.requestIdleCallback;
     const previousCancelIdleCallback = globalThis.cancelIdleCallback;

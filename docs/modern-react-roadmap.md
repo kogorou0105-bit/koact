@@ -319,8 +319,8 @@ SharedInternals.currentTransition
 ### 6.4 Lane 调度与抢占
 
 实施状态：单个 Root 已能选择最高优先级 pending Lane 分轮 Render，并通过
-`interleavedUpdatedLanes` 抢占低优 WIP 或继续当前高优 Render；跨 Root 优先级选择和 Host
-Callback 优先级尚未实现。
+`interleavedUpdatedLanes` 抢占低优 WIP 或继续当前高优 Render；`getNextRoot` 会跨 Root 选择
+最高 pending Lane，并让同优 Root 按 FIFO 轮转。Host Callback 优先级尚未实现。
 
 当前使用 Lane 判断活跃 WIP 的处理方式：
 
@@ -345,8 +345,8 @@ Scheduler 增加全局 `hostCallbackPriority` 和 callback generation token。�
 但无法改善启动延迟，因此 callback 替换是 Lane 生效的必要条件。
 
 每次 Host Callback 执行时使用 `getNextRoot()` 在所有 scheduled roots 中选择最高
-`pendingLane` 的 Root，不能继续直接 FIFO dequeue。只有最高 Lane 相同的 Root 才按原入队顺序
-轮转，避免旧 Transition Root 抢在后加入的 Sync Root 前执行，同时避免同优先级 Root 饥饿。
+`pendingLane` 的 Root。只有最高 Lane 相同的 Root 才按原入队顺序轮转，避免旧 Transition
+Root 抢在后加入的 Sync Root 前执行，同时避免同优先级 Root 饥饿。
 
 调度器必须继续保证多 Root 隔离和基本公平性。
 

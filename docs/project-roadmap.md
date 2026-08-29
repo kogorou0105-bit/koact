@@ -66,7 +66,7 @@ Lanes、Update Rebase 和 Fiber Bailout 的底层设计见[现代更新机制实
 - [x] 在 `@koact/react` 导出 `startTransition`，并通过共享内部状态选择 `TransitionLane`。
 - [x] 让 UpdateQueue 按 `renderLanes` 跳过低优更新，并正确保留和重放 base queue。
 - [x] 调度器在单个 Root 内每轮只选择最高优先级 Lane。
-- [ ] 调度器跨 Root 按最高优先级选择，而不是只按 FIFO 执行。
+- [x] 调度器跨 Root 按最高优先级选择，而不是只按 FIFO 执行。
 - [x] 高优更新到来时中断低优 WIP，同时保留未完成的低优更新。
 - [ ] 增加 Complete 阶段，向上聚合 `childLanes`。
 - [x] Commit 后只移除本轮完成的 Lane，保留其他 pending work。
@@ -79,8 +79,8 @@ Lanes、Update Rebase 和 Fiber Bailout 的底层设计见[现代更新机制实
 - [x] Transition Render 被 Default update 打断，低优 action 不丢失、不重复。
 - [x] Render Yield 期间进入的新更新不会因为 current/WIP 切换而丢失。
 - [x] 高优 Commit 后，低优 Lane 仍保留在 `pendingLanes`。
-- [ ] 后加入的 Sync Root 能先于旧 Transition Root 执行。
-- [ ] 同优先级的多个 Root 不会互相饿死。
+- [x] 后加入的 Sync Root 能先于旧 Transition Root 执行。
+- [x] 同优先级的多个 Root 不会互相饿死。
 
 ### 完成标准
 
