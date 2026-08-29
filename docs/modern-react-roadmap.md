@@ -407,11 +407,13 @@ Render 耗时、已处理 Fiber 数量及 Abort 原因；面板只在可见时�
 - 多 Root 各自选择最高优先级。
 - 同优先级大 Root 不会饿死另一个 Root。
 
-新增演示场景：
+`examples/concurrent-lab` 已提供真实浏览器演示场景：
 
-- 输入框更新使用 Default Lane。
-- 5000 项列表过滤放入 `startTransition`。
-- 受控 deadline 下可以观察到 Yield 和高优更新抢占。
+- 输入控制区与目录使用独立 Root，输入框更新使用 Default Lane。
+- 5000 项 keyed 列表过滤放入 `startTransition`。
+- 5 步 burst 以 24ms 间隔连续更新，并在 36ms 向目录 Root 注入 Default 更新。
+- 当 Transition 在 Default 更新到达时仍未完成，DevTools 时间线会记录 Yield 和高优抢占；
+  具体次数取决于浏览器提供的 deadline。
 
 ### 6.8 阶段 B 完成标准
 

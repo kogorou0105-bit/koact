@@ -7,6 +7,7 @@
   "type": "module",
   "scripts": {
     "dev:todo": "pnpm --filter todo-app dev",
+    "dev:concurrent": "pnpm --filter concurrent-lab dev",
     "dev:template": "pnpm --filter template dev",
     "dev:perf": "pnpm --filter perf dev",
     "dev:fra": "pnpm --filter fragment dev",

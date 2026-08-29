@@ -50,7 +50,7 @@ Render 阶段可以在 deadline 耗尽时暂停和恢复。Commit 阶段保持�
 | `packages/react-dom` | Scheduler、Reconciler、DOM、Hooks 和 Commit 实现 |
 | `packages/vite-plugin-koact-devtools` | 注入调度时间线与 Fiber 树可视化面板 |
 | `packages/ko-vite` | 独立的 mini-vite 实验 |
-| `examples` | Todo、Fragment、Ref 和性能示例 |
+| `examples` | Todo、Fragment、Ref、性能示例与 5000 行并发调度实验室 |
 
 `@koact/react` 不依赖 DOM。Hooks 的公共 API 通过 Dispatcher 转发到当前 Renderer，实现核心接口与宿主实现的解耦。
 
@@ -61,6 +61,7 @@ Render 阶段可以在 deadline 耗尽时暂停和恢复。Commit 阶段保持�
 ```bash
 pnpm install --frozen-lockfile
 pnpm dev:todo
+pnpm dev:concurrent
 ```
 
 基本用法：
@@ -88,6 +89,10 @@ root.unmount();
 最近 100 条 `Scheduled → Render → Yield/Abort → Commit` 调度事件。时间线按 Lane 着色，展示
 Root、相对时间、Render 耗时和处理 Fiber 数量；面板最多保留 20 份历史 Commit 树快照，
 单份快照限制为 250 个 Fiber 节点，避免调试视图无界影响被观测的应用。
+
+运行 `pnpm dev:concurrent` 可打开 5000 行调度实验室。输入控制区与目录使用独立 Root；
+内置 burst 会连续安排 Transition 过滤，并向目录 Root 注入一次 Default 更新；如果低优工作
+尚未完成，时间线会记录 Yield 和高优先级 Abort，具体次数取决于浏览器 deadline。
 
 ## 质量门禁
 
