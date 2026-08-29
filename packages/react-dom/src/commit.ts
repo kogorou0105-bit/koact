@@ -48,6 +48,7 @@ function detachDeletedStateQueues(fiber: Fiber) {
         hook.queue.pending = null;
         hook.queue.root = null;
         hook.queue.fiber = null;
+        hook.queue.workInProgressFiber = null;
       }
       hook = hook.next || null;
     }
@@ -167,6 +168,7 @@ function commitStateQueues(fiber?: Fiber) {
         hook.queue.mounted = true;
         hook.queue.root = node.root;
         hook.queue.fiber = node;
+        hook.queue.workInProgressFiber = null;
       }
       hook = hook.next || null;
     }

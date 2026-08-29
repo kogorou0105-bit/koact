@@ -352,7 +352,8 @@ Root 抢在后加入的 Sync Root 前执行，同时避免同优先级 Root 饥�
 
 ### 6.5 Complete 阶段
 
-当前遍历只实现 Begin Work。为了维护 `childLanes`，需要增加显式 Complete Work：
+当前遍历已在 DFS 回溯时执行 Complete Work，并根据本轮 WIP 子树重新聚合
+`childLanes`：
 
 ```ts
 function completeWork(fiber: Fiber) {
@@ -367,7 +368,8 @@ function completeWork(fiber: Fiber) {
 }
 ```
 
-DFS 回溯时先执行 `completeWork`，再进入 sibling 或 parent。Commit 成功后清理本轮完成的 Fiber Lane。
+StateQueue 同时记录 committed Fiber 和当前 WIP Fiber，因此 Render 期间到达的更新会标记两棵树；
+WIP 被废弃或成功 Commit 后清除临时引用。Commit 成功后只清理本轮完成的 Fiber Lane。
 
 ### 6.6 阶段 B 调度事件
 

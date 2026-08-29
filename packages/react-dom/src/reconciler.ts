@@ -7,8 +7,9 @@ import {
   type ReactNode,
 } from "@koact/react";
 import { createDom } from "./dom";
-import { NoLane } from "./lanes";
+import { mergeLanes, NoLane } from "./lanes";
 import {
+  bindWorkInProgressStateQueues,
   finishHooks,
   HooksDispatcher,
   prepareToUseHooks,
@@ -35,10 +36,22 @@ export function performUnitOfWork(
 
   let nextFiber: Fiber | undefined = fiber;
   while (nextFiber) {
+    completeWork(nextFiber);
     if (nextFiber.sibling) return nextFiber.sibling;
     nextFiber = nextFiber.parent;
   }
   return null;
+}
+
+function completeWork(fiber: Fiber) {
+  let childLanes = NoLane;
+  let child = fiber.child;
+  while (child) {
+    childLanes = mergeLanes(childLanes, child.lanes);
+    childLanes = mergeLanes(childLanes, child.childLanes);
+    child = child.sibling;
+  }
+  fiber.childLanes = childLanes;
 }
 
 function updateFunctionComponent(root: FiberRoot, fiber: Fiber) {
@@ -145,6 +158,7 @@ function reconcileChildren(
         index,
         memoizedState: matchedFiber.memoizedState,
       };
+      bindWorkInProgressStateQueues(newFiber);
     } else {
       newFiber = {
         root,

@@ -13,6 +13,7 @@ function createQueue<State>(): StateQueue<State> {
     dispatch: null,
     root: null,
     fiber: null,
+    workInProgressFiber: null,
     mounted: true,
   };
 }

@@ -11,7 +11,7 @@ Koact 是一个使用 TypeScript 从零实现的 React-like Runtime，用于研�
 | 模块 | 已实现能力 |
 | --- | --- |
 | Element | JSX、文本节点、数组与空节点归一化、Fragment、函数组件 |
-| Fiber | `child/sibling/parent` 链表遍历、current/WIP 隔离、过期 WIP 丢弃 |
+| Fiber | Begin/Complete 深度优先遍历、current/WIP 隔离、`childLanes` 聚合 |
 | Scheduler | 基于 deadline 的可中断 Render、Lane 抢占、跨 Root 优先级与公平轮转 |
 | Reconciler | 基于 key 与 type 的节点复用、移动检测、删除收集、DOM identity 保持 |
 | Hooks | `useState`、`useEffect`、`useMemo`、`useCallback`、`useRef`、Hook 顺序校验 |
@@ -92,7 +92,7 @@ pnpm check
 pnpm check:core
 ```
 
-当前基线为 7 个测试文件、57 个测试，覆盖按 Lane 分轮 Render、抢占与 Rebase、跨 Root 优先级和公平轮转、批处理、中断恢复、Keyed DOM identity、effect/ref 生命周期及异常隔离。Vitest 全局覆盖率门槛为：
+当前基线为 7 个测试文件、58 个测试，覆盖按 Lane 分轮 Render、抢占与 Rebase、`childLanes` 聚合、跨 Root 优先级和公平轮转、批处理、中断恢复、Keyed DOM identity、effect/ref 生命周期及异常隔离。Vitest 全局覆盖率门槛为：
 
 | Statements | Branches | Functions | Lines |
 | ---: | ---: | ---: | ---: |

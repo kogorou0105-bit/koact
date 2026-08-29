@@ -308,6 +308,73 @@ describe("Koact runtime", () => {
     }
   });
 
+  it("recomputes child lanes after removing a pending subtree", async () => {
+    const previousRequestIdleCallback = globalThis.requestIdleCallback;
+    const previousCancelIdleCallback = globalThis.cancelIdleCallback;
+    const idleCallbacks: IdleRequestCallback[] = [];
+    let callbackId = 0;
+
+    globalThis.requestIdleCallback = vi.fn((callback) => {
+      idleCallbacks.push(callback);
+      return ++callbackId;
+    });
+    globalThis.cancelIdleCallback = vi.fn();
+
+    try {
+      const container = document.createElement("div");
+      const internalRoot = getOrCreateRoot(container);
+      const root = createRoot(container);
+      let setCount!: (value: number) => void;
+
+      function Counter() {
+        const [count, updateCount] = useState(0);
+        setCount = updateCount;
+        return h("span", null, count);
+      }
+
+      root.render(h(Counter, null));
+      await vi.advanceTimersByTimeAsync(0);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+
+      startTransition(() => setCount(1));
+      root.render(h("p", null, "replacement"));
+      await vi.advanceTimersByTimeAsync(0);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+
+      expect(container.textContent).toBe("replacement");
+      expect(internalRoot.finishedLanes).toBe(SyncLane);
+      expect(internalRoot.pendingLanes).toBe(TransitionLane);
+      expect(internalRoot.current!.childLanes).toBe(NoLane);
+
+      await vi.advanceTimersByTimeAsync(0);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+
+      expect(internalRoot.pendingLanes).toBe(NoLane);
+      expect(internalRoot.current!.childLanes).toBe(NoLane);
+    } finally {
+      __resetSchedulerForTests();
+      if (previousRequestIdleCallback) {
+        globalThis.requestIdleCallback = previousRequestIdleCallback;
+      } else {
+        Reflect.deleteProperty(globalThis, "requestIdleCallback");
+      }
+      if (previousCancelIdleCallback) {
+        globalThis.cancelIdleCallback = previousCancelIdleCallback;
+      } else {
+        Reflect.deleteProperty(globalThis, "cancelIdleCallback");
+      }
+    }
+  });
+
   it("keeps explicit root updates synchronous inside transitions", async () => {
     const container = document.createElement("div");
     const internalRoot = getOrCreateRoot(container);
@@ -791,6 +858,8 @@ describe("Koact runtime", () => {
       expect(committedStates).toEqual([0, 1]);
       expect(internalRoot.finishedLanes).toBe(DefaultLane);
       expect(internalRoot.pendingLanes).toBe(TransitionLane);
+      expect(internalRoot.current!.childLanes).toBe(TransitionLane);
+      expect(internalRoot.current!.child!.lanes).toBe(TransitionLane);
 
       await vi.advanceTimersByTimeAsync(0);
       idleCallbacks.shift()!({
@@ -857,19 +926,29 @@ describe("Koact runtime", () => {
 
       setCount((count) => count + 1);
       await vi.advanceTimersByTimeAsync(0);
-      let deadlineChecks = 0;
       idleCallbacks.shift()!({
         didTimeout: false,
-        timeRemaining: () => (deadlineChecks++ === 0 ? 100 : 0),
+        timeRemaining: () => 0,
       });
 
       expect(container.textContent).toBe("0");
-      expect(renderedStates).toEqual([0, 1]);
+      expect(renderedStates).toEqual([0]);
       expect(internalRoot.renderLanes).toBe(DefaultLane);
 
       startTransition(() => setCount((count) => count + 10));
       expect(internalRoot.interleavedUpdatedLanes).toBe(TransitionLane);
+      expect(internalRoot.nextUnitOfWork!.lanes).toBe(
+        DefaultLane | TransitionLane,
+      );
       await vi.advanceTimersByTimeAsync(0);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 0,
+      });
+
+      expect(container.textContent).toBe("0");
+      expect(renderedStates).toEqual([0, 1]);
+
       idleCallbacks.shift()!({
         didTimeout: false,
         timeRemaining: () => 100,
@@ -880,6 +959,8 @@ describe("Koact runtime", () => {
       expect(committedStates).toEqual([0, 1]);
       expect(internalRoot.finishedLanes).toBe(DefaultLane);
       expect(internalRoot.pendingLanes).toBe(TransitionLane);
+      expect(internalRoot.current!.childLanes).toBe(TransitionLane);
+      expect(internalRoot.current!.child!.lanes).toBe(TransitionLane);
 
       await vi.advanceTimersByTimeAsync(0);
       idleCallbacks.shift()!({

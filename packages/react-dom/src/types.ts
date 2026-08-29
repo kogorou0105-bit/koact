@@ -50,6 +50,7 @@ export interface StateQueue<T = unknown> {
   dispatch: StateDispatch<T> | null;
   root: FiberRoot | null;
   fiber: Fiber | null;
+  workInProgressFiber: Fiber | null;
   mounted: boolean;
 }
 

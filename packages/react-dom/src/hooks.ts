@@ -104,6 +104,7 @@ export function useState<T>(
       dispatch: null,
       root: context.root,
       fiber: null,
+      workInProgressFiber: null,
       mounted: false,
     };
     queue.dispatch = (action) => {
@@ -121,6 +122,9 @@ export function useState<T>(
       const lane = requestUpdateLane();
       enqueueUpdate(queue, action, lane);
       markUpdateLaneFromFiberToRoot(queue.fiber, lane);
+      if (queue.workInProgressFiber) {
+        markUpdateLaneFromFiberToRoot(queue.workInProgressFiber, lane);
+      }
       queue.root.schedule(lane);
     };
     hook.queue = queue;
@@ -129,6 +133,7 @@ export function useState<T>(
 
   const queue = hook.queue as StateQueue<T>;
   queue.root = context.root;
+  queue.workInProgressFiber = context.fiber;
   let baseQueue = hook.baseQueue || null;
   const pendingQueue = queue.pending;
 
@@ -152,6 +157,41 @@ export function useState<T>(
     result.memoizedState,
     queue.dispatch as Dispatch<SetStateAction<T>>,
   ];
+}
+
+export function resetWorkInProgressStateQueues(fiber?: Fiber) {
+  if (!fiber) return;
+
+  resetHookWorkInProgressFibers(fiber.memoizedState, fiber);
+  resetHookWorkInProgressFibers(fiber.alternate?.memoizedState, fiber);
+  resetWorkInProgressStateQueues(fiber.child);
+  resetWorkInProgressStateQueues(fiber.sibling);
+}
+
+export function bindWorkInProgressStateQueues(fiber: Fiber) {
+  let hook = fiber.memoizedState;
+  while (hook) {
+    if (hook.tag === "STATE" && hook.queue) {
+      hook.queue.workInProgressFiber = fiber;
+    }
+    hook = hook.next || null;
+  }
+}
+
+function resetHookWorkInProgressFibers(
+  firstHook: Hook | null | undefined,
+  fiber: Fiber,
+) {
+  let hook = firstHook;
+  while (hook) {
+    if (
+      hook.tag === "STATE" &&
+      hook.queue?.workInProgressFiber === fiber
+    ) {
+      hook.queue.workInProgressFiber = null;
+    }
+    hook = hook.next || null;
+  }
 }
 
 function haveDepsChanged(

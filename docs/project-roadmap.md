@@ -68,7 +68,8 @@ Lanes、Update Rebase 和 Fiber Bailout 的底层设计见[现代更新机制实
 - [x] 调度器在单个 Root 内每轮只选择最高优先级 Lane。
 - [x] 调度器跨 Root 按最高优先级选择，而不是只按 FIFO 执行。
 - [x] 高优更新到来时中断低优 WIP，同时保留未完成的低优更新。
-- [ ] 增加 Complete 阶段，向上聚合 `childLanes`。
+- [ ] 按最高 pending Lane 安排并替换 Host Callback，Sync 工作使用微任务启动。
+- [x] 增加 Complete 阶段，向上聚合 `childLanes`。
 - [x] Commit 后只移除本轮完成的 Lane，保留其他 pending work。
 
 ### 必测场景

@@ -9,6 +9,7 @@ import {
 } from "./batching";
 import { performUnitOfWork } from "./reconciler";
 import { commitRoot } from "./commit";
+import { resetWorkInProgressStateQueues } from "./hooks";
 import {
   getHighestPriorityLane,
   isHigherPriorityLane,
@@ -89,6 +90,7 @@ function shouldRestartRender(root: FiberRoot) {
 }
 
 function discardWorkInProgress(root: FiberRoot) {
+  resetWorkInProgressStateQueues(root.workInProgress || undefined);
   root.workInProgress = null;
   root.nextUnitOfWork = null;
   root.renderLanes = NoLane;
@@ -289,6 +291,7 @@ export function __resetSchedulerForTests() {
   scheduledRoots.length = 0;
   scheduledRootSet.clear();
   allRoots.forEach((root) => {
+    resetWorkInProgressStateQueues(root.workInProgress || undefined);
     root.status = "unmounted";
     root.current = null;
     root.workInProgress = null;
