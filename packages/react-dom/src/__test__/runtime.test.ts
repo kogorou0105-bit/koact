@@ -304,7 +304,7 @@ describe("Koact runtime", () => {
     }
   });
 
-  it("recomputes child lanes after removing a pending subtree", async () => {
+  it("drops pending lanes after removing their only subtree", async () => {
     const previousRequestIdleCallback = globalThis.requestIdleCallback;
     const previousCancelIdleCallback = globalThis.cancelIdleCallback;
     const idleCallbacks: IdleRequestCallback[] = [];
@@ -340,25 +340,25 @@ describe("Koact runtime", () => {
 
       expect(container.textContent).toBe("replacement");
       expect(internalRoot.finishedLanes).toBe(SyncLane);
-      expect(internalRoot.pendingLanes).toBe(TransitionLane);
-      expect(internalRoot.callbackPriority).toBe(TransitionLane);
+      expect(internalRoot.pendingLanes).toBe(NoLane);
+      expect(internalRoot.callbackPriority).toBe(NoLane);
       expect(internalRoot.current!.childLanes).toBe(NoLane);
       expect(globalThis.cancelIdleCallback).toHaveBeenCalledTimes(1);
+      expect(idleCallbacks).toHaveLength(1);
 
+      const committedRoot = internalRoot.current;
       idleCallbacks.shift()!({
         didTimeout: false,
         timeRemaining: () => 100,
       });
-      expect(internalRoot.pendingLanes).toBe(TransitionLane);
-
-      idleCallbacks.shift()!({
-        didTimeout: false,
-        timeRemaining: () => 100,
-      });
+      setCount(2);
+      await vi.advanceTimersByTimeAsync(0);
 
       expect(internalRoot.pendingLanes).toBe(NoLane);
       expect(internalRoot.callbackPriority).toBe(NoLane);
       expect(internalRoot.current!.childLanes).toBe(NoLane);
+      expect(internalRoot.current).toBe(committedRoot);
+      expect(idleCallbacks).toHaveLength(0);
     } finally {
       __resetSchedulerForTests();
       if (previousRequestIdleCallback) {
@@ -982,8 +982,9 @@ describe("Koact runtime", () => {
     }
   });
 
-  it("replays consumed state queues after a render error", async () => {
+  it("preserves failed updates for an explicit retry after a render error", async () => {
     const container = document.createElement("div");
+    const internalRoot = getOrCreateRoot(container);
     const root = createRoot(container);
     const previousReportError = globalThis.reportError;
     const reportError = vi.fn();
@@ -1023,12 +1024,15 @@ describe("Koact runtime", () => {
 
       expect(reportError).toHaveBeenCalledTimes(1);
       expect(container.textContent).toBe("0:0");
+      expect(internalRoot.pendingLanes).toBe(DefaultLane);
+      expect(internalRoot.callbackPriority).toBe(NoLane);
 
       shouldThrow = false;
       root.render(h(App, null));
       await flushWork();
 
       expect(container.textContent).toBe("1:2");
+      expect(internalRoot.pendingLanes).toBe(NoLane);
       expect(updateFirst).toHaveBeenCalledTimes(2);
       expect(updateSecond).toHaveBeenCalledTimes(2);
     } finally {
@@ -1395,6 +1399,69 @@ describe("Koact runtime", () => {
   it("keeps hooks invalid outside component rendering", () => {
     expect(() => useState(0)).toThrow("Invalid hook call");
   });
+
+  it.each([
+    [
+      "fewer hooks",
+      "count" as const,
+      true,
+      false,
+      "Rendered fewer hooks than during the previous render.",
+    ],
+    [
+      "more hooks",
+      "count" as const,
+      false,
+      true,
+      "Rendered more hooks than during the previous render.",
+    ],
+    [
+      "a different hook type",
+      "type" as const,
+      true,
+      false,
+      "Hook order changed: expected STATE, received REF.",
+    ],
+  ])(
+    "rejects %s between renders",
+    async (_name, mode, initialVariant, nextVariant, message) => {
+      const container = document.createElement("div");
+      const root = createRoot(container);
+      const previousReportError = globalThis.reportError;
+      const reportError = vi.fn();
+      globalThis.reportError = reportError;
+
+      function ChangingHooks(props: { label: string; variant: boolean }) {
+        if (mode === "type") {
+          if (props.variant) useState(0);
+          else useRef(0);
+        } else {
+          useState(0);
+          if (props.variant) useRef(0);
+        }
+        return h("span", null, props.label);
+      }
+
+      try {
+        root.render(
+          h(ChangingHooks, { label: "committed", variant: initialVariant }),
+        );
+        await flushWork();
+
+        root.render(
+          h(ChangingHooks, { label: "rejected", variant: nextVariant }),
+        );
+        await flushWork();
+
+        expect(container.textContent).toBe("committed");
+        expect(reportError).toHaveBeenCalledTimes(1);
+        expect((reportError.mock.calls[0][0] as Error).message).toBe(message);
+      } finally {
+        if (previousReportError) globalThis.reportError = previousReportError;
+        else Reflect.deleteProperty(globalThis, "reportError");
+      }
+    },
+  );
 
   it("falls back when requestIdleCallback is unavailable", async () => {
     const requestIdleCallback = globalThis.requestIdleCallback;

@@ -14,9 +14,13 @@ concurrency:
 
 jobs:
   quality:
-    name: Quality gates
+    name: Quality gates (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 22]
 
     steps:
       - name: Check out repository
@@ -28,7 +32,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ matrix.node-version }}
           cache: pnpm
 
       - name: Install dependencies
@@ -50,6 +54,6 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
+          name: coverage-report-node-${{ matrix.node-version }}
           path: coverage
           if-no-files-found: ignore

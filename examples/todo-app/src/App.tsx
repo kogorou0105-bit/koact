@@ -1,8 +1,4 @@
 import React from "@koact/react";
-import type {
-  InputEvent as ReactInputEvent,
-  TransitionEvent as ReactTransitionEvent,
-} from "react";
 import { useState, useEffect } from "@koact/react";
 
 /** @jsx React.createElement */
@@ -13,6 +9,14 @@ interface Todo {
   done: boolean;
 }
 
+type InputLikeEvent = {
+  currentTarget: HTMLInputElement;
+};
+
+type TransitionLikeEvent = {
+  propertyName: string;
+};
+
 // 导出组件
 export default function App() {
   const [todos, setTodos] = useState<Todo[]>([
@@ -22,7 +26,7 @@ export default function App() {
   const [inputText, setInputText] = useState("");
   const [willDeleteId, setWillDeleteId] = useState<number[]>([]);
   // 处理输入框变化
-  const handleInput = (e: ReactInputEvent<HTMLInputElement>) => {
+  const handleInput = (e: InputLikeEvent) => {
     // 这里虽然不依赖旧状态，但保持一致性也可以写成函数
     // e.target.value 是原生 DOM 属性
     const val = e.currentTarget.value;
@@ -86,7 +90,7 @@ export default function App() {
     });
   };
 
-  const handleTransitionEnd = (e: ReactTransitionEvent<HTMLLIElement>) => {
+  const handleTransitionEnd = (e: TransitionLikeEvent) => {
     if (e.propertyName !== "opacity") return;
 
     setTodos((prevTodos) => {

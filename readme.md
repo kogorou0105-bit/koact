@@ -12,7 +12,7 @@ Koact 是一个使用 TypeScript 从零实现的 React-like Runtime，用于研�
 | --- | --- |
 | Element | JSX、文本节点、数组与空节点归一化、Fragment、函数组件 |
 | Fiber | Begin/Complete 深度优先遍历、current/WIP 隔离、`childLanes` 聚合 |
-| Scheduler | Sync 微任务、可中断 Host Callback、Lane 抢占、跨 Root 优先级与公平轮转 |
+| Scheduler | Sync 微任务、可中断 Host Callback、Lane 抢占、跨 Root 优先级与同优先级 FIFO 轮转 |
 | Reconciler | 基于 key 与 type 的节点复用、移动检测、删除收集、DOM identity 保持 |
 | Hooks | `useState`、`useEffect`、`useMemo`、`useCallback`、`useRef`、Hook 顺序校验 |
 | State | O(1) 入队的环形 UpdateQueue、函数式更新、按 Lane 跳过与 Rebase |
@@ -40,7 +40,7 @@ flowchart LR
   Queue --> Batch
 ```
 
-Render 阶段可以在 deadline 耗尽时暂停和恢复。Commit 阶段保持同步，只有完整 WIP 树能够发布为 current。Render 期间到达的新更新会使旧版本结果失效，但已进入 UpdateQueue 的 action 不会因为 WIP 被丢弃而丢失。
+Render 阶段可以在 deadline 耗尽时暂停和恢复。Commit 阶段保持同步，只有完整 WIP 树能够发布为 current。Render 期间到达的同优或更高优更新会使 WIP 重新开始；低优更新继续留在队列中，已入队的 action 不会因 WIP 被丢弃而丢失。
 
 ## 包结构
 
@@ -96,16 +96,16 @@ Root、相对时间、Render 耗时和处理 Fiber 数量；面板最多保留 2
 
 ## 调度基准
 
-本机安装 Chrome 和 `playwright-cli` 后，可重复运行真实浏览器基准：
+依赖安装会提供固定版本的 `playwright-cli`。本机安装 Chrome 后可重复运行真实浏览器基准：
 
 ```bash
 pnpm benchmark:concurrent
 ```
 
 2026-08-29 基线使用 Headless Chrome 146、1280×720 viewport、Apple M5 Pro、2 轮预热和
-10 轮测量。该次运行的输入 Default enqueue→commit 为 0.2ms median / 0.3ms p95，Transition
-enqueue→commit 为 121.5ms / 134.2ms，抢占延迟为 8.4ms / 9.3ms；10 个样本共记录 26 次 Yield
-和 10 次高优 Abort。结果仅用于同环境回归，完整参数、每轮 Render attempt 和原始事件见
+20 轮测量。该次运行的输入 Default enqueue→commit 为 0.2ms median / 0.3ms p95，Transition
+enqueue→commit 为 117.2ms / 149.8ms，抢占延迟为 8.35ms / 52.8ms；20 个样本共记录 42 次
+Yield 和 20 次高优 Abort。结果仅用于同环境回归，完整参数、每轮 Render attempt 和原始事件见
 [Benchmark 说明](./benchmarks/concurrent-lab.md)与
 [原始 JSON](./benchmarks/results/concurrent-lab.latest.json)。
 
@@ -119,7 +119,7 @@ pnpm check
 pnpm check:core
 ```
 
-当前基线为 9 个测试文件、64 个测试，覆盖调度事件与 DevTools 消费协议、按 Lane 分轮 Render、抢占与 Rebase、`childLanes` 聚合、跨 Root 优先级和公平轮转、批处理、中断恢复、Keyed DOM identity、effect/ref 生命周期及异常隔离。Vitest 全局覆盖率门槛为：
+当前基线为 9 个测试文件、67 个测试，覆盖调度事件与 DevTools 消费协议、按 Lane 分轮 Render、抢占与 Rebase、`childLanes` 聚合、跨 Root 优先级和同优先级轮转、批处理、中断恢复、Hook 顺序校验、Keyed DOM identity、effect/ref 生命周期及异常隔离。Vitest 全局覆盖率门槛为：
 
 | Statements | Branches | Functions | Lines |
 | ---: | ---: | ---: | ---: |
@@ -136,10 +136,12 @@ GitHub Actions 会在 push 和 pull request 中使用冻结锁文件重复执行
 ## 当前边界
 
 - `startTransition` 已能为同步 scope 内的 state 更新分配 `TransitionLane`，调度器会跨 Root 选择最高优先级，并允许高优更新替换 Host Callback、抢占低优 WIP；尚未实现到期时间和饥饿任务升级。
-- 尚未实现 Suspense、Error Boundary、Context、SSR、Hydration 或 Server Components。
+- 抢占是 Fiber 单元之间的协作式中断；正在执行的单个组件函数不会被中途打断。
+- Render 抛错会终止本轮并保留 pending update，需由后续 state update 或 `root.render` 显式触发重试；尚未实现 Error Boundary。
+- 尚未实现 Suspense、Context、SSR、Hydration 或 Server Components。
 - `useEffect` 在 Commit 中同步执行，尚未拆分 layout 与 passive effect 阶段。
 - DOM 事件使用逐节点原生监听，尚未实现 Root 事件委托和合成事件。
-- Commit 当前会同步校准宿主子树，尚未使用 `subtreeFlags` 做精确增量遍历。
+- Commit 当前会同步校准宿主子树，尚未使用 `subtreeFlags` 做精确增量遍历；宿主 mutation 异常只会上报，不提供 DOM 回滚。
 
 ## 项目路线图
 

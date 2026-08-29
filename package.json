@@ -2,8 +2,7 @@
   "name": "koact",
   "version": "1.0.0",
   "private": true,
-  "description": "",
-  "main": "index.js",
+  "description": "A TypeScript React-like runtime for studying Fiber scheduling and reconciliation.",
   "type": "module",
   "scripts": {
     "dev:todo": "pnpm --filter todo-app dev",
@@ -24,14 +23,27 @@
     "build:todo": "pnpm --filter todo-app build",
     "create": "node scripts/create.js"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "react",
+    "fiber",
+    "scheduler",
+    "typescript"
+  ],
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kogorou0105-bit/koact.git"
+  },
+  "homepage": "https://github.com/kogorou0105-bit/koact#readme",
+  "bugs": {
+    "url": "https://github.com/kogorou0105-bit/koact/issues"
+  },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
   },
   "packageManager": "pnpm@10.27.0",
   "devDependencies": {
+    "@playwright/cli": "0.1.18",
     "@types/node": "^25.0.10",
     "@vitest/coverage-v8": "4.0.18",
     "@vitest/ui": "4.0.18",

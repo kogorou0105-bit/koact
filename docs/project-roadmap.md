@@ -80,6 +80,7 @@ Lanes、Update Rebase 和 Fiber Bailout 的底层设计见[现代更新机制实
 - [x] Transition Render 被 Default update 打断，低优 action 不丢失、不重复。
 - [x] Render Yield 期间进入的新更新不会因为 current/WIP 切换而丢失。
 - [x] 高优 Commit 后，低优 Lane 仍保留在 `pendingLanes`。
+- [x] 删除唯一携带低优更新的子树后，不保留孤立 Lane 或产生空转 Commit。
 - [x] 后加入的 Sync Root 能先于旧 Transition Root 执行。
 - [x] 同优先级的多个 Root 不会互相饿死。
 

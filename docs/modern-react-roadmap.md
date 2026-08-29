@@ -1,6 +1,6 @@
 # Koact 现代更新机制实施计划
 
-状态：阶段 A 已完成，阶段 B 进行中，阶段 C 规划中
+状态：阶段 A、阶段 B 已完成，阶段 C 规划中
 更新时间：2026-08-29
 
 ## 1. 背景
@@ -57,7 +57,7 @@ dispatch action
 | 阶段 | 状态 | 能力 | 依赖原因 |
 | --- | --- | --- | --- |
 | A | 已完成 | 环形 UpdateQueue + 自动批处理 | Lane 需要可跳过、可重放的更新队列 |
-| B | 进行中 | Lanes + `startTransition` | Bailout 必须知道当前 Fiber 和子树是否有目标优先级 |
+| B | 已完成 | Lanes + `startTransition` | Bailout 必须知道当前 Fiber 和子树是否有目标优先级 |
 | C | 规划中 | `memo` + Fiber Bailout | 依赖 `lanes`、`childLanes` 和完整的子树克隆逻辑 |
 
 每个阶段独立提交，只有当前阶段测试通过后才进入下一阶段。
@@ -199,15 +199,16 @@ flush microtask 和 Host Callback 的职责必须分开并可测试。
 - Promise 回调中的多个更新自动批处理。
 - 前一次工作完成后，后续 task 的更新会产生新的 Commit。
 - 同一批次中的两个 Root 各提交一次。
+- Hook 数量或类型在两次 Render 间变化时终止本轮，并保留上一次已提交 DOM。
 
 ### 5.5 阶段 A 完成标准
 
 - State Hook 不再使用 action 数组和 `processedCount`。
 - 更新队列支持中断后的安全重放。
 - 批处理测试能够断言 Render 次数和 Commit 次数。
-- 当前 35 个核心测试全部通过，并由 CI 执行覆盖率门禁。
+- 阶段 A 完成时的 35 个核心测试全部通过，并由 CI 执行覆盖率门禁。
 
-## 6. 阶段 B：Lanes 与 startTransition（进行中）
+## 6. 阶段 B：Lanes 与 startTransition（已完成）
 
 ### 6.1 Lane 模型
 
@@ -239,8 +240,8 @@ isHigherPriorityLane(a, b)
 
 ### 6.2 Root 与 Fiber 字段
 
-实施状态：Root/Fiber Lane 字段、committed Fiber 到 Root 的 Lane 冒泡，以及本轮 Lane 的
-Render/Commit 生命周期已完成。current/WIP 双向配对与按优先级调度尚未开始。
+实施状态：Root/Fiber Lane 字段、committed Fiber 到 Root 的 Lane 冒泡、活跃 WIP 标记，
+以及按优先级执行的 Render/Commit 生命周期均已完成。
 
 `FiberRoot` 增加：
 
@@ -273,26 +274,28 @@ requestUpdateLane
 dispatch 从 `queue.fiber` 获取 committed Fiber；Hook Render 期间共享 queue 仍然保留旧 owner，
 只有 Commit 成功后才切换为新 Fiber，确保中断 WIP 不会成为调度入口。
 
-为了处理 Yield 期间到达的新更新，current/WIP 在活跃 Render 内建立临时双向配对：
+为了处理 Yield 期间到达的新更新，WIP 通过 `alternate` 指向 current；共享 StateQueue 另外
+记录当前活跃的 WIP Fiber：
 
 ```text
 workInProgress.alternate = current
-current.alternate = workInProgress
+queue.fiber = current
+queue.workInProgressFiber = workInProgress
 ```
 
-`markUpdateLaneFromFiberToRoot` 先标记 committed Fiber 路径；如果该 Fiber 已经存在本轮 WIP
-对应节点，再同步标记 WIP 路径。尚未创建 WIP 对应节点时，后续 `createWorkInProgress`
-必须从 current 复制最新的 `lanes/childLanes`。Commit 或 Abort 后清除旧树反向链接，避免形成
-历史链。
+`markUpdateLaneFromFiberToRoot` 先标记 committed Fiber 路径；如果 StateQueue 已绑定本轮 WIP
+节点，再同步标记 WIP 路径。尚未创建 WIP 对应节点时，后续 Reconciliation 会从 current
+复制最新的 `lanes/childLanes`。Commit 或 Abort 后清除 `queue.workInProgressFiber`，避免旧 WIP
+继续成为更新入口；实现不在 current Fiber 上建立反向 `alternate`。
 
 这条规则尤其用于“高优 Render 正在进行时，子组件收到低优更新”的场景。低优更新可以不打断
 当前工作，但必须被带入即将提交的新 current 树，不能只存在于即将被替换的旧树。
 
 ### 6.3 startTransition
 
-实施状态：`startTransition`、同步 Transition 上下文和 `requestUpdateLane` 已完成。更新能够
-携带 `DefaultLane` 或 `TransitionLane`，显式 Root 更新保持 `SyncLane`；按 Lane 拆分 Render
-和高优抢占仍属于下一阶段。
+实施状态：`startTransition`、同步 Transition 上下文、`requestUpdateLane`、按 Lane 拆分
+Render 和高优抢占均已完成。更新能够携带 `DefaultLane` 或 `TransitionLane`，显式 Root 更新
+保持 `SyncLane`。
 
 在 `@koact/react` 导出：
 
@@ -417,7 +420,7 @@ Render 耗时、已处理 Fiber 数量及 Abort 原因；面板只在可见时�
 
 ### 6.8 阶段 B 基准
 
-`pnpm benchmark:concurrent` 使用 headless Chrome 串行执行 2 轮预热和 10 轮测量。每轮先安排
+`pnpm benchmark:concurrent` 使用 headless Chrome 串行执行 2 轮预热和 20 轮测量。每轮先安排
 Control Root 的 Default 输入更新与 Catalog Root 的 Transition 过滤，观察到 Transition
 `render-start` 后再注入 Catalog Default 更新。Runner 记录两个 Root 的完整调度事件、每次
 Render attempt 的处理 Fiber 数、Yield、Abort、Commit 和耗时，并输出 median/p95 统计。

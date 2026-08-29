@@ -28,6 +28,7 @@ type BenchmarkOptions = {
 type BenchmarkControls = {
   scheduleFilter: (value: string) => void;
   interruptCatalog: () => void;
+  getRenderedCount: () => number;
   isReady: () => boolean;
   listSize: number;
 };
@@ -56,6 +57,7 @@ type BenchmarkSample = {
   renderCount: number;
   commitCount: number;
   processedFibers: number;
+  renderedRows: number;
   renderAttempts: RenderAttempt[];
   events: CapturedEvent[];
 };
@@ -381,6 +383,12 @@ const runSample = async (
     defaultCommit.timestamp,
   );
   const renderAttempts = collectRenderAttempts(catalogEvents);
+  const renderedRows = controls.getRenderedCount();
+  if (renderedRows !== controls.listSize) {
+    throw new Error(
+      `Benchmark sample ${index} rendered ${renderedRows} of ${controls.listSize} rows.`,
+    );
+  }
   const sample: BenchmarkSample = {
     phase,
     index,
@@ -412,6 +420,7 @@ const runSample = async (
       (total, attempt) => total + attempt.processedFibers,
       0,
     ),
+    renderedRows,
     renderAttempts,
     events,
   };
@@ -446,7 +455,7 @@ export function installBenchmarkRunner(controls: BenchmarkControls) {
 
       const options: Required<BenchmarkOptions> = {
         warmupRuns: inputOptions.warmupRuns ?? 2,
-        measuredRuns: inputOptions.measuredRuns ?? 10,
+        measuredRuns: inputOptions.measuredRuns ?? 20,
         interruptDelayMs: inputOptions.interruptDelayMs ?? 8,
         settleDelayMs: inputOptions.settleDelayMs ?? 24,
         timeoutMs: inputOptions.timeoutMs ?? 15000,

@@ -27,12 +27,26 @@ type HostCallbackHandle =
 
 const scheduledRoots: FiberRoot[] = [];
 const scheduledRootSet = new Set<FiberRoot>();
-const allRoots = new Set<FiberRoot>();
+const trackedRoots = new Set<WeakRef<FiberRoot>>();
 let rootsByContainer = new WeakMap<HTMLElement, FiberRoot>();
 let hostCallback: HostCallbackHandle | null = null;
 let hostCallbackPriority: Lane = NoLane;
 let hostCallbackGeneration = 0;
 let nextRootId = 1;
+
+function trackRoot(root: FiberRoot) {
+  trackedRoots.forEach((reference) => {
+    if (!reference.deref()) trackedRoots.delete(reference);
+  });
+  trackedRoots.add(new WeakRef(root));
+}
+
+function untrackRoot(root: FiberRoot) {
+  trackedRoots.forEach((reference) => {
+    const trackedRoot = reference.deref();
+    if (!trackedRoot || trackedRoot === root) trackedRoots.delete(reference);
+  });
+}
 
 function reportError(error: unknown) {
   if (typeof globalThis.reportError === "function") {
@@ -263,7 +277,7 @@ function performWorkUntilDeadline(
       root.interleavedUpdatedLanes = NoLane;
       root.callbackPriority = NoLane;
       rootsByContainer.delete(root.container);
-      allRoots.delete(root);
+      untrackRoot(root);
     } else if (
       root.renderVersion !== root.updateVersion ||
       root.pendingLanes !== NoLane
@@ -384,7 +398,7 @@ export function getOrCreateRoot(container: HTMLElement): FiberRoot {
   };
 
   rootsByContainer.set(container, root);
-  allRoots.add(root);
+  trackRoot(root);
   return root;
 }
 
@@ -412,7 +426,9 @@ export function __resetSchedulerForTests() {
   cancelHostCallback();
   scheduledRoots.length = 0;
   scheduledRootSet.clear();
-  allRoots.forEach((root) => {
+  trackedRoots.forEach((reference) => {
+    const root = reference.deref();
+    if (!root) return;
     resetWorkInProgressStateQueues(root.workInProgress || undefined);
     root.status = "unmounted";
     root.current = null;
@@ -427,6 +443,6 @@ export function __resetSchedulerForTests() {
     root.processedFibers = 0;
     root.deletions = [];
   });
-  allRoots.clear();
+  trackedRoots.clear();
   rootsByContainer = new WeakMap();
 }

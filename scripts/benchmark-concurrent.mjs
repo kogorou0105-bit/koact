@@ -34,7 +34,7 @@ function readPositiveInteger(name, fallback) {
 
 const parameters = {
   warmupRuns: readPositiveInteger("warmup", 2),
-  measuredRuns: readPositiveInteger("samples", 10),
+  measuredRuns: readPositiveInteger("samples", 20),
   interruptDelayMs: readPositiveInteger("interrupt-delay", 8),
   settleDelayMs: readPositiveInteger("settle-delay", 24),
   timeoutMs: readPositiveInteger("timeout", 15000),
@@ -54,6 +54,7 @@ const outputPath = path.resolve(
 );
 const sessionName = `koact-benchmark-${process.pid}`;
 const serverUrl = `http://127.0.0.1:${port}/?benchmark=1`;
+const viewport = { width: 1280, height: 720 };
 const temporaryDirectory = await mkdtemp(
   path.join(tmpdir(), "koact-benchmark-"),
 );
@@ -137,6 +138,11 @@ try {
   await waitForServer();
   await runPlaywright(["open", "--browser=chrome", serverUrl]);
   browserOpened = true;
+  await runPlaywright([
+    "resize",
+    String(viewport.width),
+    String(viewport.height),
+  ]);
 
   const expression = `async () => JSON.stringify(await window.__KOACT_BENCHMARK__.run(${JSON.stringify(parameters)}))`;
   await runPlaywright(
@@ -150,6 +156,11 @@ try {
 
   let report = JSON.parse(await readFile(browserResultPath, "utf8"));
   if (typeof report === "string") report = JSON.parse(report);
+  if (!report.summary?.samplesWithPreemption) {
+    throw new Error(
+      "Benchmark produced no higher-priority aborts; no report was saved.",
+    );
+  }
   const processors = cpus();
   report.runner = {
     node: process.version,

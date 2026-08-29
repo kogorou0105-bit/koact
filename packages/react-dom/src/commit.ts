@@ -1,6 +1,6 @@
 import { updateDom } from "./dom";
 import { getEventTimestamp, KoactEvents } from "./events";
-import { NoLane, removeLanes } from "./lanes";
+import { mergeLanes, NoLane, removeLanes } from "./lanes";
 import type { Fiber, FiberRoot, Hook } from "./types";
 
 function reportError(error: unknown) {
@@ -178,13 +178,17 @@ function commitStateQueues(fiber?: Fiber) {
 function commitFinishedLanes(root: FiberRoot, finishedWork: Fiber) {
   const finishedLanes = root.renderLanes;
   root.finishedLanes = finishedLanes;
-  root.pendingLanes = removeLanes(root.pendingLanes, finishedLanes);
-  root.renderLanes = NoLane;
 
   visitTree(finishedWork, (fiber) => {
     fiber.lanes = removeLanes(fiber.lanes, finishedLanes);
     fiber.childLanes = removeLanes(fiber.childLanes, finishedLanes);
   });
+
+  root.pendingLanes = mergeLanes(
+    finishedWork.lanes,
+    finishedWork.childLanes,
+  );
+  root.renderLanes = NoLane;
 }
 
 function detachChangedRefs(fiber?: Fiber) {

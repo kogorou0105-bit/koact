@@ -4,14 +4,10 @@
   "description": "A mini-vite implementation",
   "type": "module",
   "main": "src/index.ts",
-  "bin": {
-    "ko-vite": "bin/ko-vite.js"
-  },
   "scripts": {
     "dev": "tsx src/index.ts"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["vite", "dev-server", "learning"],
   "license": "ISC",
   "dependencies": {
     "connect": "^3.7.0",

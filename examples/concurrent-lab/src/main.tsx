@@ -283,6 +283,8 @@ if (BENCHMARK_MODE) {
   installBenchmarkRunner({
     scheduleFilter,
     interruptCatalog: () => interruptCatalog(),
+    getRenderedCount: () =>
+      resultsContainer.querySelectorAll(".catalog-row").length,
     isReady: () => isControlReady && isCatalogReady,
     listSize: ITEMS.length,
   });
