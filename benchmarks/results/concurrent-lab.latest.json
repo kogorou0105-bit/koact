@@ -1,0 +1,1913 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-29T11:56:57.435Z",
+  "environment": {
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/146.0.0.0 Safari/537.36",
+    "platform": "MacIntel",
+    "hardwareConcurrency": 18,
+    "viewport": {
+      "width": 1280,
+      "height": 720,
+      "devicePixelRatio": 1
+    }
+  },
+  "parameters": {
+    "warmupRuns": 2,
+    "measuredRuns": 10,
+    "interruptDelayMs": 8,
+    "settleDelayMs": 24,
+    "timeoutMs": 15000,
+    "listSize": 5000,
+    "queries": [
+      "record",
+      ""
+    ]
+  },
+  "roots": {
+    "control": 1,
+    "catalog": 2
+  },
+  "summary": {
+    "inputEnqueueToCommitMs": {
+      "median": 0.2,
+      "p95": 0.3,
+      "min": 0.1,
+      "max": 0.3
+    },
+    "transitionEnqueueToCommitMs": {
+      "median": 121.5,
+      "p95": 134.2,
+      "min": 107.1,
+      "max": 134.2
+    },
+    "interactionToSettledMs": {
+      "median": 121.5,
+      "p95": 134.3,
+      "min": 107.2,
+      "max": 134.3
+    },
+    "transitionRenderMs": {
+      "median": 32.05,
+      "p95": 48.2,
+      "min": 29,
+      "max": 48.2
+    },
+    "preemptionLatencyMs": {
+      "median": 8.4,
+      "p95": 9.3,
+      "min": 0.2,
+      "max": 9.3
+    },
+    "renderCount": {
+      "median": 3,
+      "p95": 3,
+      "min": 3,
+      "max": 3
+    },
+    "commitCount": {
+      "median": 2,
+      "p95": 2,
+      "min": 2,
+      "max": 2
+    },
+    "processedFibers": {
+      "median": 127148.5,
+      "p95": 133339,
+      "min": 123125,
+      "max": 133339
+    },
+    "totalYields": 26,
+    "totalAborts": 10,
+    "samplesWithPreemption": 10
+  },
+  "samples": [
+    {
+      "phase": "warmup",
+      "index": 0,
+      "query": "record",
+      "requestedAt": 1464.3,
+      "inputEnqueueToCommitMs": 0.5,
+      "transitionEnqueueToCommitMs": 132.7,
+      "interactionToSettledMs": 132.9,
+      "transitionRenderMs": 38.2,
+      "preemptionLatencyMs": 3.7,
+      "yieldCount": 4,
+      "abortReasons": [
+        "higher-priority-update"
+      ],
+      "renderCount": 3,
+      "commitCount": 2,
+      "processedFibers": 145247,
+      "renderAttempts": [
+        {
+          "lane": 4,
+          "outcome": "abort",
+          "elapsedTime": 19.1,
+          "processedFibers": 35217,
+          "yieldCount": 2,
+          "reason": "higher-priority-update"
+        },
+        {
+          "lane": 2,
+          "outcome": "commit",
+          "elapsedTime": 45.1,
+          "processedFibers": 55015,
+          "yieldCount": 1
+        },
+        {
+          "lane": 4,
+          "outcome": "commit",
+          "elapsedTime": 38.2,
+          "processedFibers": 55015,
+          "yieldCount": 1
+        }
+      ],
+      "events": [
+        {
+          "type": "update-scheduled",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 1464.5,
+          "processedFibers": 0
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1464.5,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 1464.7000000029802,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 1465,
+          "processedFibers": 70,
+          "elapsedTime": 0.29999999701976776,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1474.1000000089407,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1481.2999999970198,
+          "processedFibers": 2679,
+          "elapsedTime": 7.199999988079071
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1489.4000000059605,
+          "processedFibers": 35217,
+          "elapsedTime": 15.299999997019768
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 1489.5,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-abort",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1493.2000000029802,
+          "processedFibers": 35217,
+          "elapsedTime": 19.099999994039536,
+          "nextLane": 2,
+          "reason": "higher-priority-update"
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 1495.4000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 1497.9000000059605,
+          "processedFibers": 2,
+          "elapsedTime": 2.5
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 1540.5,
+          "processedFibers": 55015,
+          "elapsedTime": 45.099999994039536,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1559,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1562.6000000089407,
+          "processedFibers": 15,
+          "elapsedTime": 3.6000000089406967
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1597.2000000029802,
+          "processedFibers": 55015,
+          "elapsedTime": 38.20000000298023,
+          "deletions": 0
+        }
+      ]
+    },
+    {
+      "phase": "warmup",
+      "index": 1,
+      "query": "",
+      "requestedAt": 1622.7,
+      "inputEnqueueToCommitMs": 0.3,
+      "transitionEnqueueToCommitMs": 107.5,
+      "interactionToSettledMs": 107.6,
+      "transitionRenderMs": 30.7,
+      "preemptionLatencyMs": 0.3,
+      "yieldCount": 2,
+      "abortReasons": [
+        "higher-priority-update"
+      ],
+      "renderCount": 3,
+      "commitCount": 2,
+      "processedFibers": 125846,
+      "renderAttempts": [
+        {
+          "lane": 4,
+          "outcome": "abort",
+          "elapsedTime": 8.7,
+          "processedFibers": 15816,
+          "yieldCount": 1,
+          "reason": "higher-priority-update"
+        },
+        {
+          "lane": 2,
+          "outcome": "commit",
+          "elapsedTime": 31.3,
+          "processedFibers": 55015,
+          "yieldCount": 1
+        },
+        {
+          "lane": 4,
+          "outcome": "commit",
+          "elapsedTime": 30.7,
+          "processedFibers": 55015,
+          "yieldCount": 0
+        }
+      ],
+      "events": [
+        {
+          "type": "update-scheduled",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 1622.7999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1622.7999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 1622.9000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 1623.1000000089407,
+          "processedFibers": 70,
+          "elapsedTime": 0.20000000298023224,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1632,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1639.2000000029802,
+          "processedFibers": 15816,
+          "elapsedTime": 7.200000002980232
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 1640.4000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-abort",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1640.7000000029802,
+          "processedFibers": 15816,
+          "elapsedTime": 8.700000002980232,
+          "nextLane": 2,
+          "reason": "higher-priority-update"
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 1641.1000000089407,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 1648,
+          "processedFibers": 18008,
+          "elapsedTime": 6.899999991059303
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 1672.4000000059605,
+          "processedFibers": 55015,
+          "elapsedTime": 31.299999997019768,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1699.6000000089407,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1730.2999999970198,
+          "processedFibers": 55015,
+          "elapsedTime": 30.69999998807907,
+          "deletions": 0
+        }
+      ]
+    },
+    {
+      "phase": "measured",
+      "index": 2,
+      "query": "record",
+      "requestedAt": 1755.5,
+      "inputEnqueueToCommitMs": 0.3,
+      "transitionEnqueueToCommitMs": 108.2,
+      "interactionToSettledMs": 108.4,
+      "transitionRenderMs": 29.9,
+      "preemptionLatencyMs": 8.7,
+      "yieldCount": 1,
+      "abortReasons": [
+        "higher-priority-update"
+      ],
+      "renderCount": 3,
+      "commitCount": 2,
+      "processedFibers": 130165,
+      "renderAttempts": [
+        {
+          "lane": 4,
+          "outcome": "abort",
+          "elapsedTime": 17,
+          "processedFibers": 20135,
+          "yieldCount": 1,
+          "reason": "higher-priority-update"
+        },
+        {
+          "lane": 2,
+          "outcome": "commit",
+          "elapsedTime": 31.4,
+          "processedFibers": 55015,
+          "yieldCount": 0
+        },
+        {
+          "lane": 4,
+          "outcome": "commit",
+          "elapsedTime": 29.9,
+          "processedFibers": 55015,
+          "yieldCount": 0
+        }
+      ],
+      "events": [
+        {
+          "type": "update-scheduled",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 1755.6000000089407,
+          "processedFibers": 0
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1755.7000000029802,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 1755.7000000029802,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 1755.9000000059605,
+          "processedFibers": 70,
+          "elapsedTime": 0.20000000298023224,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1765.7000000029802,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1773.1000000089407,
+          "processedFibers": 20135,
+          "elapsedTime": 7.4000000059604645
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 1774,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-abort",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1782.7000000029802,
+          "processedFibers": 20135,
+          "elapsedTime": 17,
+          "nextLane": 2,
+          "reason": "higher-priority-update"
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 1784.4000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 1815.7999999970198,
+          "processedFibers": 55015,
+          "elapsedTime": 31.399999991059303,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1834,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1863.9000000059605,
+          "processedFibers": 55015,
+          "elapsedTime": 29.900000005960464,
+          "deletions": 0
+        }
+      ]
+    },
+    {
+      "phase": "measured",
+      "index": 3,
+      "query": "",
+      "requestedAt": 1889.7,
+      "inputEnqueueToCommitMs": 0.1,
+      "transitionEnqueueToCommitMs": 131.7,
+      "interactionToSettledMs": 131.8,
+      "transitionRenderMs": 48.2,
+      "preemptionLatencyMs": 1.8,
+      "yieldCount": 6,
+      "abortReasons": [
+        "higher-priority-update"
+      ],
+      "renderCount": 3,
+      "commitCount": 2,
+      "processedFibers": 133339,
+      "renderAttempts": [
+        {
+          "lane": 4,
+          "outcome": "abort",
+          "elapsedTime": 11.3,
+          "processedFibers": 23309,
+          "yieldCount": 2,
+          "reason": "higher-priority-update"
+        },
+        {
+          "lane": 2,
+          "outcome": "commit",
+          "elapsedTime": 35.7,
+          "processedFibers": 55015,
+          "yieldCount": 1
+        },
+        {
+          "lane": 4,
+          "outcome": "commit",
+          "elapsedTime": 48.2,
+          "processedFibers": 55015,
+          "yieldCount": 3
+        }
+      ],
+      "events": [
+        {
+          "type": "update-scheduled",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 1889.7999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1889.7999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 1889.9000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 1889.9000000059605,
+          "processedFibers": 70,
+          "elapsedTime": 0,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1896.9000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1899.7000000029802,
+          "processedFibers": 2,
+          "elapsedTime": 2.7999999970197678
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1906.4000000059605,
+          "processedFibers": 23309,
+          "elapsedTime": 9.5
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 1906.4000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-abort",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1908.2000000029802,
+          "processedFibers": 23309,
+          "elapsedTime": 11.299999997019768,
+          "nextLane": 2,
+          "reason": "higher-priority-update"
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 1910.2999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 1912.2999999970198,
+          "processedFibers": 2,
+          "elapsedTime": 2
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 1946,
+          "processedFibers": 55015,
+          "elapsedTime": 35.70000000298023,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1973.2999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1975.2999999970198,
+          "processedFibers": 2,
+          "elapsedTime": 2
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1980.2999999970198,
+          "processedFibers": 15802,
+          "elapsedTime": 7
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 1993.2000000029802,
+          "processedFibers": 26790,
+          "elapsedTime": 19.900000005960464
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2021.5,
+          "processedFibers": 55015,
+          "elapsedTime": 48.20000000298023,
+          "deletions": 0
+        }
+      ]
+    },
+    {
+      "phase": "measured",
+      "index": 4,
+      "query": "record",
+      "requestedAt": 2046.6,
+      "inputEnqueueToCommitMs": 0.2,
+      "transitionEnqueueToCommitMs": 107.1,
+      "interactionToSettledMs": 107.2,
+      "transitionRenderMs": 29.6,
+      "preemptionLatencyMs": 8.4,
+      "yieldCount": 1,
+      "abortReasons": [
+        "higher-priority-update"
+      ],
+      "renderCount": 3,
+      "commitCount": 2,
+      "processedFibers": 131290,
+      "renderAttempts": [
+        {
+          "lane": 4,
+          "outcome": "abort",
+          "elapsedTime": 16.9,
+          "processedFibers": 21260,
+          "yieldCount": 1,
+          "reason": "higher-priority-update"
+        },
+        {
+          "lane": 2,
+          "outcome": "commit",
+          "elapsedTime": 30.1,
+          "processedFibers": 55015,
+          "yieldCount": 0
+        },
+        {
+          "lane": 4,
+          "outcome": "commit",
+          "elapsedTime": 29.6,
+          "processedFibers": 55015,
+          "yieldCount": 0
+        }
+      ],
+      "events": [
+        {
+          "type": "update-scheduled",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2046.6000000089407,
+          "processedFibers": 0
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2046.7000000029802,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2046.7000000029802,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2046.7999999970198,
+          "processedFibers": 70,
+          "elapsedTime": 0.09999999403953552,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2057.2000000029802,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2064.5,
+          "processedFibers": 21260,
+          "elapsedTime": 7.299999997019768
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2065.7000000029802,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-abort",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2074.1000000089407,
+          "processedFibers": 21260,
+          "elapsedTime": 16.900000005960464,
+          "nextLane": 2,
+          "reason": "higher-priority-update"
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2075.9000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2106,
+          "processedFibers": 55015,
+          "elapsedTime": 30.099999994039536,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2124.2000000029802,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2153.7999999970198,
+          "processedFibers": 55015,
+          "elapsedTime": 29.599999994039536,
+          "deletions": 0
+        }
+      ]
+    },
+    {
+      "phase": "measured",
+      "index": 5,
+      "query": "",
+      "requestedAt": 2179.3,
+      "inputEnqueueToCommitMs": 0.2,
+      "transitionEnqueueToCommitMs": 131.3,
+      "interactionToSettledMs": 131.3,
+      "transitionRenderMs": 33.2,
+      "preemptionLatencyMs": 9.3,
+      "yieldCount": 3,
+      "abortReasons": [
+        "higher-priority-update"
+      ],
+      "renderCount": 3,
+      "commitCount": 2,
+      "processedFibers": 129630,
+      "renderAttempts": [
+        {
+          "lane": 4,
+          "outcome": "abort",
+          "elapsedTime": 17.6,
+          "processedFibers": 19600,
+          "yieldCount": 1,
+          "reason": "higher-priority-update"
+        },
+        {
+          "lane": 2,
+          "outcome": "commit",
+          "elapsedTime": 40.4,
+          "processedFibers": 55015,
+          "yieldCount": 1
+        },
+        {
+          "lane": 4,
+          "outcome": "commit",
+          "elapsedTime": 33.2,
+          "processedFibers": 55015,
+          "yieldCount": 1
+        }
+      ],
+      "events": [
+        {
+          "type": "update-scheduled",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2179.2999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2179.2999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2179.2999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2179.5,
+          "processedFibers": 70,
+          "elapsedTime": 0.20000000298023224,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2190.7000000029802,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2197.9000000059605,
+          "processedFibers": 19600,
+          "elapsedTime": 7.200000002980232
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2199,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-abort",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2208.2999999970198,
+          "processedFibers": 19600,
+          "elapsedTime": 17.599999994039536,
+          "nextLane": 2,
+          "reason": "higher-priority-update"
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2209.7999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2216.2999999970198,
+          "processedFibers": 9867,
+          "elapsedTime": 6.5
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2250.2000000029802,
+          "processedFibers": 55015,
+          "elapsedTime": 40.400000005960464,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2277.4000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2282.4000000059605,
+          "processedFibers": 9275,
+          "elapsedTime": 5
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2310.6000000089407,
+          "processedFibers": 55015,
+          "elapsedTime": 33.20000000298023,
+          "deletions": 0
+        }
+      ]
+    },
+    {
+      "phase": "measured",
+      "index": 6,
+      "query": "record",
+      "requestedAt": 2335.8,
+      "inputEnqueueToCommitMs": 0.2,
+      "transitionEnqueueToCommitMs": 130.4,
+      "interactionToSettledMs": 130.4,
+      "transitionRenderMs": 47.8,
+      "preemptionLatencyMs": 0.2,
+      "yieldCount": 4,
+      "abortReasons": [
+        "higher-priority-update"
+      ],
+      "renderCount": 3,
+      "commitCount": 2,
+      "processedFibers": 123834,
+      "renderAttempts": [
+        {
+          "lane": 4,
+          "outcome": "abort",
+          "elapsedTime": 8.6,
+          "processedFibers": 13804,
+          "yieldCount": 1,
+          "reason": "higher-priority-update"
+        },
+        {
+          "lane": 2,
+          "outcome": "commit",
+          "elapsedTime": 32.7,
+          "processedFibers": 55015,
+          "yieldCount": 1
+        },
+        {
+          "lane": 4,
+          "outcome": "commit",
+          "elapsedTime": 47.8,
+          "processedFibers": 55015,
+          "yieldCount": 2
+        }
+      ],
+      "events": [
+        {
+          "type": "update-scheduled",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2335.7999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2335.7999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2335.9000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2336,
+          "processedFibers": 70,
+          "elapsedTime": 0.09999999403953552,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2348.7000000029802,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2356,
+          "processedFibers": 13804,
+          "elapsedTime": 7.299999997019768
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2357.1000000089407,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-abort",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2357.2999999970198,
+          "processedFibers": 13804,
+          "elapsedTime": 8.599999994039536,
+          "nextLane": 2,
+          "reason": "higher-priority-update"
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2358.4000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2364.6000000089407,
+          "processedFibers": 15130,
+          "elapsedTime": 6.200000002980232
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2391.1000000089407,
+          "processedFibers": 55015,
+          "elapsedTime": 32.70000000298023,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2418.4000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2420.2000000029802,
+          "processedFibers": 2,
+          "elapsedTime": 1.7999999970197678
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2438.2000000029802,
+          "processedFibers": 37498,
+          "elapsedTime": 19.799999997019768
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2466.2000000029802,
+          "processedFibers": 55015,
+          "elapsedTime": 47.79999999701977,
+          "deletions": 0
+        }
+      ]
+    },
+    {
+      "phase": "measured",
+      "index": 7,
+      "query": "",
+      "requestedAt": 2491.3,
+      "inputEnqueueToCommitMs": 0.2,
+      "transitionEnqueueToCommitMs": 112,
+      "interactionToSettledMs": 112,
+      "transitionRenderMs": 29,
+      "preemptionLatencyMs": 4.6,
+      "yieldCount": 2,
+      "abortReasons": [
+        "higher-priority-update"
+      ],
+      "renderCount": 3,
+      "commitCount": 2,
+      "processedFibers": 123125,
+      "renderAttempts": [
+        {
+          "lane": 4,
+          "outcome": "abort",
+          "elapsedTime": 13.3,
+          "processedFibers": 13095,
+          "yieldCount": 1,
+          "reason": "higher-priority-update"
+        },
+        {
+          "lane": 2,
+          "outcome": "commit",
+          "elapsedTime": 33.4,
+          "processedFibers": 55015,
+          "yieldCount": 1
+        },
+        {
+          "lane": 4,
+          "outcome": "commit",
+          "elapsedTime": 29,
+          "processedFibers": 55015,
+          "yieldCount": 0
+        }
+      ],
+      "events": [
+        {
+          "type": "update-scheduled",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2491.2999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2491.2999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2491.4000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2491.5,
+          "processedFibers": 70,
+          "elapsedTime": 0.09999999403953552,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2499.7000000029802,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2506.2000000029802,
+          "processedFibers": 13095,
+          "elapsedTime": 6.5
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2508.4000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-abort",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2513,
+          "processedFibers": 13095,
+          "elapsedTime": 13.299999997019768,
+          "nextLane": 2,
+          "reason": "higher-priority-update"
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2513.9000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2515.7000000029802,
+          "processedFibers": 2,
+          "elapsedTime": 1.7999999970197678
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2547.2999999970198,
+          "processedFibers": 55015,
+          "elapsedTime": 33.3999999910593,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2574.2999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2603.2999999970198,
+          "processedFibers": 55015,
+          "elapsedTime": 29,
+          "deletions": 0
+        }
+      ]
+    },
+    {
+      "phase": "measured",
+      "index": 8,
+      "query": "record",
+      "requestedAt": 2628.3,
+      "inputEnqueueToCommitMs": 0.1,
+      "transitionEnqueueToCommitMs": 134.2,
+      "interactionToSettledMs": 134.3,
+      "transitionRenderMs": 39.1,
+      "preemptionLatencyMs": 8.4,
+      "yieldCount": 3,
+      "abortReasons": [
+        "higher-priority-update"
+      ],
+      "renderCount": 3,
+      "commitCount": 2,
+      "processedFibers": 126992,
+      "renderAttempts": [
+        {
+          "lane": 4,
+          "outcome": "abort",
+          "elapsedTime": 16.7,
+          "processedFibers": 16962,
+          "yieldCount": 1,
+          "reason": "higher-priority-update"
+        },
+        {
+          "lane": 2,
+          "outcome": "commit",
+          "elapsedTime": 30.2,
+          "processedFibers": 55015,
+          "yieldCount": 1
+        },
+        {
+          "lane": 4,
+          "outcome": "commit",
+          "elapsedTime": 39.1,
+          "processedFibers": 55015,
+          "yieldCount": 1
+        }
+      ],
+      "events": [
+        {
+          "type": "update-scheduled",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2628.4000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2628.4000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2628.5,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2628.5,
+          "processedFibers": 70,
+          "elapsedTime": 0,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2640.7000000029802,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2648,
+          "processedFibers": 16962,
+          "elapsedTime": 7.299999997019768
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2649,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-abort",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2657.4000000059605,
+          "processedFibers": 16962,
+          "elapsedTime": 16.700000002980232,
+          "nextLane": 2,
+          "reason": "higher-priority-update"
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2657.7999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2664.2999999970198,
+          "processedFibers": 19470,
+          "elapsedTime": 6.5
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2688,
+          "processedFibers": 55015,
+          "elapsedTime": 30.200000002980232,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2723.5,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2731.6000000089407,
+          "processedFibers": 21415,
+          "elapsedTime": 8.100000008940697
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2762.6000000089407,
+          "processedFibers": 55015,
+          "elapsedTime": 39.1000000089407,
+          "deletions": 0
+        }
+      ]
+    },
+    {
+      "phase": "measured",
+      "index": 9,
+      "query": "",
+      "requestedAt": 2788.5,
+      "inputEnqueueToCommitMs": 0.2,
+      "transitionEnqueueToCommitMs": 114.5,
+      "interactionToSettledMs": 114.6,
+      "transitionRenderMs": 35.8,
+      "preemptionLatencyMs": 8.4,
+      "yieldCount": 2,
+      "abortReasons": [
+        "higher-priority-update"
+      ],
+      "renderCount": 3,
+      "commitCount": 2,
+      "processedFibers": 124620,
+      "renderAttempts": [
+        {
+          "lane": 4,
+          "outcome": "abort",
+          "elapsedTime": 16.6,
+          "processedFibers": 14590,
+          "yieldCount": 1,
+          "reason": "higher-priority-update"
+        },
+        {
+          "lane": 2,
+          "outcome": "commit",
+          "elapsedTime": 32.3,
+          "processedFibers": 55015,
+          "yieldCount": 0
+        },
+        {
+          "lane": 4,
+          "outcome": "commit",
+          "elapsedTime": 35.8,
+          "processedFibers": 55015,
+          "yieldCount": 1
+        }
+      ],
+      "events": [
+        {
+          "type": "update-scheduled",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2788.6000000089407,
+          "processedFibers": 0
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2788.6000000089407,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2788.6000000089407,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2788.7999999970198,
+          "processedFibers": 70,
+          "elapsedTime": 0.19999998807907104,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2799.1000000089407,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2806.2999999970198,
+          "processedFibers": 14590,
+          "elapsedTime": 7.199999988079071
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2807.2999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-abort",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2815.7000000029802,
+          "processedFibers": 14590,
+          "elapsedTime": 16.599999994039536,
+          "nextLane": 2,
+          "reason": "higher-priority-update"
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2816.9000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2849.2000000029802,
+          "processedFibers": 55015,
+          "elapsedTime": 32.29999999701977,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2867.2999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2871,
+          "processedFibers": 4239,
+          "elapsedTime": 3.7000000029802322
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2903.1000000089407,
+          "processedFibers": 55015,
+          "elapsedTime": 35.80000001192093,
+          "deletions": 0
+        }
+      ]
+    },
+    {
+      "phase": "measured",
+      "index": 10,
+      "query": "record",
+      "requestedAt": 2928.3,
+      "inputEnqueueToCommitMs": 0.2,
+      "transitionEnqueueToCommitMs": 116.9,
+      "interactionToSettledMs": 116.9,
+      "transitionRenderMs": 29.8,
+      "preemptionLatencyMs": 8.5,
+      "yieldCount": 1,
+      "abortReasons": [
+        "higher-priority-update"
+      ],
+      "renderCount": 3,
+      "commitCount": 2,
+      "processedFibers": 126051,
+      "renderAttempts": [
+        {
+          "lane": 4,
+          "outcome": "abort",
+          "elapsedTime": 16.7,
+          "processedFibers": 16021,
+          "yieldCount": 1,
+          "reason": "higher-priority-update"
+        },
+        {
+          "lane": 2,
+          "outcome": "commit",
+          "elapsedTime": 30.2,
+          "processedFibers": 55015,
+          "yieldCount": 0
+        },
+        {
+          "lane": 4,
+          "outcome": "commit",
+          "elapsedTime": 29.8,
+          "processedFibers": 55015,
+          "yieldCount": 0
+        }
+      ],
+      "events": [
+        {
+          "type": "update-scheduled",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2928.2999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2928.2999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2928.2999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 2928.5,
+          "processedFibers": 70,
+          "elapsedTime": 0.20000000298023224,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2940.7000000029802,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2948,
+          "processedFibers": 16021,
+          "elapsedTime": 7.299999997019768
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2948.9000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-abort",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 2957.4000000059605,
+          "processedFibers": 16021,
+          "elapsedTime": 16.700000002980232,
+          "nextLane": 2,
+          "reason": "higher-priority-update"
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2958.2999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 2988.5,
+          "processedFibers": 55015,
+          "elapsedTime": 30.200000002980232,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 3015.4000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 3045.2000000029802,
+          "processedFibers": 55015,
+          "elapsedTime": 29.799999997019768,
+          "deletions": 0
+        }
+      ]
+    },
+    {
+      "phase": "measured",
+      "index": 11,
+      "query": "",
+      "requestedAt": 3070.4,
+      "inputEnqueueToCommitMs": 0.2,
+      "transitionEnqueueToCommitMs": 126.1,
+      "interactionToSettledMs": 126.1,
+      "transitionRenderMs": 30.9,
+      "preemptionLatencyMs": 9.3,
+      "yieldCount": 3,
+      "abortReasons": [
+        "higher-priority-update"
+      ],
+      "renderCount": 3,
+      "commitCount": 2,
+      "processedFibers": 127305,
+      "renderAttempts": [
+        {
+          "lane": 4,
+          "outcome": "abort",
+          "elapsedTime": 17.7,
+          "processedFibers": 17275,
+          "yieldCount": 1,
+          "reason": "higher-priority-update"
+        },
+        {
+          "lane": 2,
+          "outcome": "commit",
+          "elapsedTime": 30.1,
+          "processedFibers": 55015,
+          "yieldCount": 1
+        },
+        {
+          "lane": 4,
+          "outcome": "commit",
+          "elapsedTime": 30.9,
+          "processedFibers": 55015,
+          "yieldCount": 1
+        }
+      ],
+      "events": [
+        {
+          "type": "update-scheduled",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 3070.4000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 3070.4000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 3070.4000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "commit",
+          "rootId": 1,
+          "lane": 2,
+          "timestamp": 3070.6000000089407,
+          "processedFibers": 70,
+          "elapsedTime": 0.20000000298023224,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 3082.2999999970198,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 3089.7000000029802,
+          "processedFibers": 17275,
+          "elapsedTime": 7.4000000059604645
+        },
+        {
+          "type": "update-scheduled",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 3090.7000000029802,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-abort",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 3100,
+          "processedFibers": 17275,
+          "elapsedTime": 17.700000002980232,
+          "nextLane": 2,
+          "reason": "higher-priority-update"
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 3100.4000000059605,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 3107,
+          "processedFibers": 20191,
+          "elapsedTime": 6.5999999940395355
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 2,
+          "timestamp": 3130.5,
+          "processedFibers": 55015,
+          "elapsedTime": 30.099999994039536,
+          "deletions": 0
+        },
+        {
+          "type": "render-start",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 3165.6000000089407,
+          "processedFibers": 0
+        },
+        {
+          "type": "render-yield",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 3173,
+          "processedFibers": 17991,
+          "elapsedTime": 7.399999991059303
+        },
+        {
+          "type": "commit",
+          "rootId": 2,
+          "lane": 4,
+          "timestamp": 3196.5,
+          "processedFibers": 55015,
+          "elapsedTime": 30.899999991059303,
+          "deletions": 0
+        }
+      ]
+    }
+  ],
+  "runner": {
+    "node": "v22.22.2",
+    "playwrightCli": "0.1.18",
+    "os": {
+      "platform": "darwin",
+      "release": "25.5.0",
+      "arch": "arm64",
+      "cpu": "Apple M5 Pro",
+      "logicalCpuCount": 18,
+      "totalMemoryBytes": 51539607552
+    }
+  }
+}

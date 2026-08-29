@@ -5,6 +5,7 @@ import Koact, {
   useState,
 } from "@koact/react";
 import { createRoot } from "@koact/react-dom";
+import { installBenchmarkRunner } from "./benchmark";
 import "./styles.css";
 
 type CatalogItem = {
@@ -57,8 +58,19 @@ const ITEMS: CatalogItem[] = Array.from({ length: 5000 }, (_, index) => {
   };
 });
 
+const BENCHMARK_MODE = new URLSearchParams(window.location.search).has(
+  "benchmark",
+);
+let updateControlQuery: (value: string) => void = () => {};
 let updateCatalogFilter: (value: string) => void = () => {};
 let interruptCatalog: () => void = () => {};
+let isControlReady = false;
+let isCatalogReady = false;
+
+const scheduleFilter = (value: string) => {
+  updateControlQuery(value);
+  startTransition(() => updateCatalogFilter(value));
+};
 
 function ControlDeck() {
   const [query, setQuery] = useState("");
@@ -74,9 +86,17 @@ function ControlDeck() {
   useEffect(() => () => cancelBurst(), []);
 
   const applyFilter = (value: string) => {
-    setQuery(value);
-    startTransition(() => updateCatalogFilter(value));
+    scheduleFilter(value);
   };
+
+  useEffect(() => {
+    updateControlQuery = (value) => setQuery(value);
+    isControlReady = true;
+    return () => {
+      isControlReady = false;
+      updateControlQuery = () => {};
+    };
+  }, []);
 
   const handleInput = (event: InputLikeEvent) => {
     cancelBurst();
@@ -197,7 +217,9 @@ function Catalog() {
   useEffect(() => {
     updateCatalogFilter = (value) => setFilter(value);
     interruptCatalog = () => setInterruptRevision((revision) => revision + 1);
+    isCatalogReady = true;
     return () => {
+      isCatalogReady = false;
       updateCatalogFilter = () => {};
       interruptCatalog = () => {};
     };
@@ -224,7 +246,10 @@ function Catalog() {
         </div>
       </header>
 
-      <ul className="catalog-grid">
+      <ul
+        className="catalog-grid"
+        aria-hidden={BENCHMARK_MODE ? true : undefined}
+      >
         {visibleItems.map((item) => (
           <li key={item.id} className="catalog-row">
             <span className="record-code">#{item.code}</span>
@@ -252,6 +277,15 @@ const resultsContainer = document.getElementById("results-root");
 
 if (!controlsContainer || !resultsContainer) {
   throw new Error("Concurrent lab containers are missing.");
+}
+
+if (BENCHMARK_MODE) {
+  installBenchmarkRunner({
+    scheduleFilter,
+    interruptCatalog: () => interruptCatalog(),
+    isReady: () => isControlReady && isCatalogReady,
+    listSize: ITEMS.length,
+  });
 }
 
 createRoot(controlsContainer).render(<ControlDeck />);

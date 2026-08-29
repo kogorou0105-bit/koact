@@ -1,6 +1,6 @@
 # Koact 项目路线图
 
-状态：P0 已完成，P1 进行中
+状态：P0、P1、P1.5 已完成，P2 待开始
 
 更新时间：2026-08-29
 
@@ -20,8 +20,8 @@ Lanes、Update Rebase 和 Fiber Bailout 的底层设计见[现代更新机制实
 | 阶段 | 状态 | 主题 | 核心交付物 |
 | --- | --- | --- | --- |
 | P0 | 已完成 | 更新基础与工程门禁 | UpdateQueue、自动批处理、CI、覆盖率、架构文档 |
-| P1 | 进行中 | 并发调度核心 | Lanes、`startTransition`、抢占、Rebase |
-| P1.5 | 待开始 | 可观测性与性能证据 | 调度时间线、Concurrent Lab、Benchmark |
+| P1 | 已完成 | 并发调度核心 | Lanes、`startTransition`、抢占、Rebase |
+| P1.5 | 已完成 | 可观测性与性能证据 | 调度时间线、Concurrent Lab、Benchmark |
 | P2 | 待开始 | 渲染 Bailout | `memo`、`childLanes`、Fiber Bailout |
 | P3 | 待开始 | 事件系统 | Root 事件委托、捕获/冒泡、批处理边界 |
 
@@ -103,7 +103,7 @@ docs: document concurrent scheduling semantics
 
 ## 5. P1.5：调度可观测性与性能证据
 
-状态：进行中
+状态：已完成（2026-08-29）
 
 ### 实现清单
 
@@ -113,22 +113,22 @@ docs: document concurrent scheduling semantics
 - [x] 将现有 Fiber 树面板升级为调度时间线，并保留历史 Commit 树快照回看。
 - [x] 展示每次更新的 Lane、Yield、Abort、Commit、耗时和处理 Fiber 数量。
 - [x] 新增 `examples/concurrent-lab`，使用 5000 项列表演示输入更新、Transition 过滤与高优抢占。
-- [ ] 建立可重复 Benchmark，保存运行参数和原始结果。
+- [x] 建立可重复 Benchmark，保存运行参数和原始结果。
 
 ### 建议指标
 
-- [ ] 输入更新从 enqueue 到 Commit 的 median/p95 延迟。
-- [ ] 每轮 Render 的 Begin Work 节点数、Yield 次数和 Abort 次数。
-- [ ] 同一交互中的 Render/Commit 次数。
-- [ ] 高优更新到达后，Transition WIP 被抢占所需时间。
-- [ ] 固定浏览器版本、机器信息、列表规模、预热次数和采样轮数。
+- [x] 输入更新从 enqueue 到 Commit 的 median/p95 延迟。
+- [x] 每轮 Render 的 Begin Work 节点数、Yield 次数和 Abort 次数。
+- [x] 同一交互中的 Render/Commit 次数。
+- [x] 高优更新到达后，Transition WIP 被抢占所需时间。
+- [x] 固定浏览器版本、机器信息、列表规模、预热次数和采样轮数。
 
 ### 完成标准
 
-- [ ] DevTools 可以还原一次 `schedule → yield → abort → commit` 完整链路。
-- [ ] Concurrent Lab 不使用固定 500ms busy loop 伪造性能差异。
-- [ ] Benchmark 可通过脚本重复执行，而不是只保留截图。
-- [ ] README 只展示真实测量结果，不填写推测数据。
+- [x] DevTools 可以还原一次 `schedule → yield → abort → commit` 完整链路。
+- [x] Concurrent Lab 不使用固定 500ms busy loop 伪造性能差异。
+- [x] Benchmark 可通过脚本重复执行，而不是只保留截图。
+- [x] README 只展示真实测量结果，不填写推测数据。
 
 ### 建议提交拆分
 

@@ -94,6 +94,21 @@ Root、相对时间、Render 耗时和处理 Fiber 数量；面板最多保留 2
 内置 burst 会连续安排 Transition 过滤，并向目录 Root 注入一次 Default 更新；如果低优工作
 尚未完成，时间线会记录 Yield 和高优先级 Abort，具体次数取决于浏览器 deadline。
 
+## 调度基准
+
+本机安装 Chrome 和 `playwright-cli` 后，可重复运行真实浏览器基准：
+
+```bash
+pnpm benchmark:concurrent
+```
+
+2026-08-29 基线使用 Headless Chrome 146、1280×720 viewport、Apple M5 Pro、2 轮预热和
+10 轮测量。该次运行的输入 Default enqueue→commit 为 0.2ms median / 0.3ms p95，Transition
+enqueue→commit 为 121.5ms / 134.2ms，抢占延迟为 8.4ms / 9.3ms；10 个样本共记录 26 次 Yield
+和 10 次高优 Abort。结果仅用于同环境回归，完整参数、每轮 Render attempt 和原始事件见
+[Benchmark 说明](./benchmarks/concurrent-lab.md)与
+[原始 JSON](./benchmarks/results/concurrent-lab.latest.json)。
+
 ## 质量门禁
 
 ```bash

@@ -395,7 +395,7 @@ Render 耗时、已处理 Fiber 数量及 Abort 原因；面板只在可见时�
 
 ### 6.7 阶段 B 测试
 
-`packages/react-dom/src/__test__/lanes.test.ts` 已覆盖 Lane 位运算；后续继续覆盖：
+`packages/react-dom/src/__test__/lanes.test.ts` 和 runtime/event 测试已覆盖：
 
 - Lane 合并、移除和最高优先级选择。
 - Default Render 跳过 Transition update。
@@ -415,7 +415,18 @@ Render 耗时、已处理 Fiber 数量及 Abort 原因；面板只在可见时�
 - 当 Transition 在 Default 更新到达时仍未完成，DevTools 时间线会记录 Yield 和高优抢占；
   具体次数取决于浏览器提供的 deadline。
 
-### 6.8 阶段 B 完成标准
+### 6.8 阶段 B 基准
+
+`pnpm benchmark:concurrent` 使用 headless Chrome 串行执行 2 轮预热和 10 轮测量。每轮先安排
+Control Root 的 Default 输入更新与 Catalog Root 的 Transition 过滤，观察到 Transition
+`render-start` 后再注入 Catalog Default 更新。Runner 记录两个 Root 的完整调度事件、每次
+Render attempt 的处理 Fiber 数、Yield、Abort、Commit 和耗时，并输出 median/p95 统计。
+
+原始报告保存在 `benchmarks/results/concurrent-lab.latest.json`，同时记录 Chrome UA、viewport、
+CPU、内存、操作系统、Node、`playwright-cli`、列表规模和采样参数。该数据用于同环境回归，
+不作为跨机器性能比较。
+
+### 6.9 阶段 B 完成标准
 
 - 每个 update、Fiber 和 Root 都具有可追踪的 Lane。
 - 高优更新能够中断低优 WIP，且不会丢失低优 action。
@@ -585,13 +596,16 @@ packages/react-dom/src/__test__/batching.test.ts
 
 ```text
 packages/react-dom/src/__test__/lanes.test.ts
+packages/react-dom/src/events.ts
+examples/concurrent-lab/
+scripts/benchmark-concurrent.mjs
+benchmarks/concurrent-lab.md
 ```
 
-阶段 B/C 计划新增：
+阶段 C 计划新增：
 
 ```text
 packages/react-dom/src/__test__/memo.test.ts
-examples/concurrent-lab/
 ```
 
 阶段 A 已修改：
@@ -634,6 +648,7 @@ pnpm check
 - 无固定 sleep，调度测试使用可控 deadline。
 - Concurrent Lab 在 Chrome 中完成输入和列表交互冒烟测试。
 - DevTools 事件可以还原一次 Transition 被高优更新打断的完整过程。
+- Concurrent Lab 基准脚本保存环境、参数、聚合指标与逐轮原始事件。
 
 ## 10. 建议提交拆分
 
