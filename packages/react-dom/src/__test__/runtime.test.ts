@@ -194,15 +194,19 @@ describe("Koact runtime", () => {
     expect(internalRoot.finishedLanes).toBe(DefaultLane);
   });
 
-  it("preserves mixed update lanes and their insertion order", async () => {
+  it("renders the highest priority lane first and rebases deferred updates", async () => {
     const container = document.createElement("div");
     const internalRoot = getOrCreateRoot(container);
     const root = createRoot(container);
     let updateCount!: (update: (value: number) => number) => void;
+    const committedStates: number[] = [];
 
     function Counter() {
-      const [count, setCount] = useState(1);
+      const [count, setCount] = useState(0);
       updateCount = setCount;
+      useEffect(() => {
+        committedStates.push(count);
+      }, [count]);
       return h("span", null, count);
     }
 
@@ -222,10 +226,86 @@ describe("Koact runtime", () => {
     );
 
     await flushWork();
-    expect(container.textContent).toBe("21");
-    expect(internalRoot.finishedLanes).toBe(
-      DefaultLane | TransitionLane,
-    );
+    expect(committedStates).toEqual([0, 2, 11]);
+    expect(container.textContent).toBe("11");
+    expect(internalRoot.pendingLanes).toBe(NoLane);
+    expect(internalRoot.finishedLanes).toBe(TransitionLane);
+    expect(queue.pending).toBeNull();
+    expect(internalRoot.current!.child!.memoizedState!.baseQueue).toBeNull();
+  });
+
+  it("keeps transition work pending between priority commits", async () => {
+    const previousRequestIdleCallback = globalThis.requestIdleCallback;
+    const previousCancelIdleCallback = globalThis.cancelIdleCallback;
+    const idleCallbacks: IdleRequestCallback[] = [];
+    let callbackId = 0;
+
+    globalThis.requestIdleCallback = vi.fn((callback) => {
+      idleCallbacks.push(callback);
+      return ++callbackId;
+    });
+    globalThis.cancelIdleCallback = vi.fn();
+
+    try {
+      const container = document.createElement("div");
+      const internalRoot = getOrCreateRoot(container);
+      const root = createRoot(container);
+      let updateCount!: (update: (value: number) => number) => void;
+
+      function Counter() {
+        const [count, setCount] = useState(0);
+        updateCount = setCount;
+        return h("span", null, count);
+      }
+
+      root.render(h(Counter, null));
+      await vi.advanceTimersByTimeAsync(0);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+
+      updateCount((value) => value + 1);
+      startTransition(() => updateCount((value) => value * 10));
+      updateCount((value) => value + 1);
+      await vi.advanceTimersByTimeAsync(0);
+
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+
+      const defaultHook = internalRoot.current!.child!.memoizedState!;
+      expect(container.textContent).toBe("2");
+      expect(internalRoot.finishedLanes).toBe(DefaultLane);
+      expect(internalRoot.pendingLanes).toBe(TransitionLane);
+      expect(defaultHook.baseState).toBe(1);
+      expect(defaultHook.baseQueue?.next.lane).toBe(TransitionLane);
+      expect(defaultHook.baseQueue?.lane).toBe(NoLane);
+
+      await vi.advanceTimersByTimeAsync(0);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+
+      expect(container.textContent).toBe("11");
+      expect(internalRoot.finishedLanes).toBe(TransitionLane);
+      expect(internalRoot.pendingLanes).toBe(NoLane);
+      expect(internalRoot.current!.child!.memoizedState!.baseQueue).toBeNull();
+    } finally {
+      __resetSchedulerForTests();
+      if (previousRequestIdleCallback) {
+        globalThis.requestIdleCallback = previousRequestIdleCallback;
+      } else {
+        Reflect.deleteProperty(globalThis, "requestIdleCallback");
+      }
+      if (previousCancelIdleCallback) {
+        globalThis.cancelIdleCallback = previousCancelIdleCallback;
+      } else {
+        Reflect.deleteProperty(globalThis, "cancelIdleCallback");
+      }
+    }
   });
 
   it("keeps explicit root updates synchronous inside transitions", async () => {

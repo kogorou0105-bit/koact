@@ -9,7 +9,12 @@ import {
 } from "./batching";
 import { performUnitOfWork } from "./reconciler";
 import { commitRoot } from "./commit";
-import { mergeLanes, NoLane, SyncLane } from "./lanes";
+import {
+  getHighestPriorityLane,
+  mergeLanes,
+  NoLane,
+  SyncLane,
+} from "./lanes";
 
 type HostCallbackHandle =
   | { kind: "idle"; id: number }
@@ -30,7 +35,13 @@ function reportError(error: unknown) {
 }
 
 function enqueueRoot(root: FiberRoot) {
-  if (root.status === "unmounted" || scheduledRootSet.has(root)) return;
+  if (
+    root.status === "unmounted" ||
+    root.pendingLanes === NoLane ||
+    scheduledRootSet.has(root)
+  ) {
+    return;
+  }
 
   scheduledRootSet.add(root);
   scheduledRoots.push(root);
@@ -55,7 +66,7 @@ function prepareFreshStack(root: FiberRoot) {
     __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
 
   root.renderVersion = root.updateVersion;
-  root.renderLanes = root.pendingLanes;
+  root.renderLanes = getHighestPriorityLane(root.pendingLanes);
   root.finishedLanes = NoLane;
   root.deletions = [];
   root.workInProgress = {
@@ -139,7 +150,10 @@ function performWorkUntilDeadline(deadline: IdleDeadline) {
       root.current = null;
       rootsByContainer.delete(root.container);
       allRoots.delete(root);
-    } else if (root.renderVersion !== root.updateVersion) {
+    } else if (
+      root.renderVersion !== root.updateVersion ||
+      root.pendingLanes !== NoLane
+    ) {
       scheduleBatchedRoot(root);
     }
   }

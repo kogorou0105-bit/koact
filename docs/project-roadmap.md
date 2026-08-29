@@ -65,7 +65,8 @@ Lanes、Update Rebase 和 Fiber Bailout 的底层设计见[现代更新机制实
 - [x] 实现 `markUpdateLaneFromFiberToRoot`，沿 parent 路径冒泡子树优先级。
 - [x] 在 `@koact/react` 导出 `startTransition`，并通过共享内部状态选择 `TransitionLane`。
 - [x] 让 UpdateQueue 按 `renderLanes` 跳过低优更新，并正确保留和重放 base queue。
-- [ ] 调度器优先选择最高优先级 Root/Lane，而不是只按 FIFO 执行。
+- [x] 调度器在单个 Root 内每轮只选择最高优先级 Lane。
+- [ ] 调度器跨 Root 按最高优先级选择，而不是只按 FIFO 执行。
 - [ ] 高优更新到来时中断低优 WIP，同时保留未完成的低优更新。
 - [ ] 增加 Complete 阶段，向上聚合 `childLanes`。
 - [x] Commit 后只移除本轮完成的 Lane，保留其他 pending work。
@@ -73,21 +74,21 @@ Lanes、Update Rebase 和 Fiber Bailout 的底层设计见[现代更新机制实
 ### 必测场景
 
 - [x] Lane 合并、移除、包含判断和最高优先级选择。
-- [ ] Default Render 跳过 Transition update。
-- [ ] `Default +1 → Transition *10 → Default +1` 最终从 `2` Rebase 为 `11`。
+- [x] Default Render 跳过 Transition update。
+- [x] `Default +1 → Transition *10 → Default +1` 最终从 `2` Rebase 为 `11`。
 - [ ] Transition Render 被 Default update 打断，低优 action 不丢失、不重复。
 - [ ] Render Yield 期间进入的新更新不会因为 current/WIP 切换而丢失。
-- [ ] 高优 Commit 后，低优 Lane 仍保留在 `pendingLanes`。
+- [x] 高优 Commit 后，低优 Lane 仍保留在 `pendingLanes`。
 - [ ] 后加入的 Sync Root 能先于旧 Transition Root 执行。
 - [ ] 同优先级的多个 Root 不会互相饿死。
 
 ### 完成标准
 
-- [ ] 每个 Update、Fiber 和 Root 的 Lane 都可以被测试读取和断言。
+- [x] 每个 Update、Fiber 和 Root 的 Lane 都可以被测试读取和断言。
 - [x] `startTransition` 有公开 API、类型声明和使用示例。
-- [ ] 调度测试使用可控 deadline，不依赖固定 sleep。
-- [ ] 原有批处理、Hooks、Keyed Diff、ref/effect 和卸载测试全部保持通过。
-- [ ] `pnpm check` 通过，覆盖率不低于仓库门槛。
+- [x] 调度测试使用可控 deadline，不依赖固定 sleep。
+- [x] 原有批处理、Hooks、Keyed Diff、ref/effect 和卸载测试全部保持通过。
+- [x] `pnpm check` 通过，覆盖率不低于仓库门槛。
 
 ### 建议提交拆分
 

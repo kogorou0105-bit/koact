@@ -8,8 +8,8 @@
 Koact 已经具备 Fiber 树、可中断 Render、统一 Commit、Hooks、多 Root、keyed
 reconciliation、effect/ref 生命周期、环形 UpdateQueue 和自动批处理。当前更新系统仍有以下边界：
 
-- `useState` 已支持携带 Lane 的环形更新和 Rebase，但运行时只有单一 `DefaultLane`。
-- Root 仍通过版本号判断是否废弃 WIP，所有更新优先级相同。
+- `useState` 已支持 `DefaultLane/TransitionLane` 和 Rebase，单 Root 会分轮处理最高优先级 Lane。
+- Root 仍通过版本号废弃任意过期 WIP，尚未根据 Lane 判断继续、重启或抢占。
 - 同一 JavaScript 回调中的多次更新通过微任务合并 Root 调度。
 - 每个函数组件都会重新执行，没有 `memo` 和基于子树优先级的 Bailout。
 
@@ -317,6 +317,9 @@ SharedInternals.currentTransition
 更新队列，连续显式 render 仍采用最后一次值覆盖前一次值的现有语义。
 
 ### 6.4 Lane 调度与抢占
+
+实施状态：单个 Root 已能选择最高优先级 pending Lane 分轮 Render，并在 Commit 后自动调度
+剩余 Lane；跨 Root 优先级选择、Host Callback 优先级和进行中 WIP 抢占尚未实现。
 
 当前版本号模型会在任意新更新到来时废弃 WIP。改造后使用 Lane 判断：
 
