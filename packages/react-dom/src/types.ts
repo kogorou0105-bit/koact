@@ -16,11 +16,12 @@ export interface FiberRoot {
   pendingLanes: Lanes;
   renderLanes: Lanes;
   finishedLanes: Lanes;
+  interleavedUpdatedLanes: Lanes;
   callbackPriority: Lane;
   updateVersion: number;
   renderVersion: number;
   status: RootStatus;
-  schedule: () => void;
+  schedule: (lane: Lane) => void;
   flush: () => void;
 }
 

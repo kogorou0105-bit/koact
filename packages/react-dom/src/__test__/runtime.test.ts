@@ -484,7 +484,7 @@ describe("Koact runtime", () => {
     expect(commits).toEqual([2, 2]);
   });
 
-  it("keeps updates queued while an obsolete render is interrupted", async () => {
+  it("restarts a yielded render when a same-lane update arrives", async () => {
     const previousRequestIdleCallback = globalThis.requestIdleCallback;
     const previousCancelIdleCallback = globalThis.cancelIdleCallback;
     const idleCallbacks: IdleRequestCallback[] = [];
@@ -538,8 +538,10 @@ describe("Koact runtime", () => {
         timeRemaining: () => (deadlineChecks++ === 0 ? 100 : 0),
       });
 
-      expect(internalRoot.workInProgress).toBeNull();
-      expect(internalRoot.renderLanes).toBe(NoLane);
+      expect(internalRoot.workInProgress).not.toBeNull();
+      expect(internalRoot.renderLanes).toBe(DefaultLane);
+      expect(internalRoot.interleavedUpdatedLanes).toBe(NoLane);
+      expect(renderedStates).toEqual([0, 1, 2]);
 
       idleCallbacks.shift()!({
         didTimeout: false,
@@ -548,6 +550,185 @@ describe("Koact runtime", () => {
 
       expect(container.textContent).toBe("2");
       expect(renderedStates).toEqual([0, 1, 2]);
+    } finally {
+      __resetSchedulerForTests();
+      if (previousRequestIdleCallback) {
+        globalThis.requestIdleCallback = previousRequestIdleCallback;
+      } else {
+        Reflect.deleteProperty(globalThis, "requestIdleCallback");
+      }
+      if (previousCancelIdleCallback) {
+        globalThis.cancelIdleCallback = previousCancelIdleCallback;
+      } else {
+        Reflect.deleteProperty(globalThis, "cancelIdleCallback");
+      }
+    }
+  });
+
+  it("preempts a transition render when a default update arrives", async () => {
+    const previousRequestIdleCallback = globalThis.requestIdleCallback;
+    const previousCancelIdleCallback = globalThis.cancelIdleCallback;
+    const idleCallbacks: IdleRequestCallback[] = [];
+    let callbackId = 0;
+
+    globalThis.requestIdleCallback = vi.fn((callback) => {
+      idleCallbacks.push(callback);
+      return ++callbackId;
+    });
+    globalThis.cancelIdleCallback = vi.fn();
+
+    try {
+      const container = document.createElement("div");
+      const internalRoot = getOrCreateRoot(container);
+      const root = createRoot(container);
+      const renderedStates: number[] = [];
+      const committedStates: number[] = [];
+      let setCount!: (update: (count: number) => number) => void;
+
+      function Counter() {
+        const [count, updateCount] = useState(0);
+        setCount = updateCount;
+        renderedStates.push(count);
+        useEffect(() => {
+          committedStates.push(count);
+        }, [count]);
+        return h("span", null, count);
+      }
+
+      root.render(h(Counter, null));
+      await vi.advanceTimersByTimeAsync(0);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+
+      startTransition(() => setCount((count) => count + 10));
+      await vi.advanceTimersByTimeAsync(0);
+      let deadlineChecks = 0;
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => (deadlineChecks++ === 0 ? 100 : 0),
+      });
+
+      expect(container.textContent).toBe("0");
+      expect(renderedStates).toEqual([0, 10]);
+      expect(committedStates).toEqual([0]);
+      expect(internalRoot.renderLanes).toBe(TransitionLane);
+      expect(internalRoot.workInProgress).not.toBeNull();
+
+      setCount((count) => count + 1);
+      expect(internalRoot.interleavedUpdatedLanes).toBe(DefaultLane);
+      await vi.advanceTimersByTimeAsync(0);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+
+      expect(container.textContent).toBe("1");
+      expect(renderedStates).toEqual([0, 10, 1]);
+      expect(committedStates).toEqual([0, 1]);
+      expect(internalRoot.finishedLanes).toBe(DefaultLane);
+      expect(internalRoot.pendingLanes).toBe(TransitionLane);
+
+      await vi.advanceTimersByTimeAsync(0);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+
+      expect(container.textContent).toBe("11");
+      expect(renderedStates).toEqual([0, 10, 1, 11]);
+      expect(committedStates).toEqual([0, 1, 11]);
+      expect(internalRoot.finishedLanes).toBe(TransitionLane);
+      expect(internalRoot.pendingLanes).toBe(NoLane);
+    } finally {
+      __resetSchedulerForTests();
+      if (previousRequestIdleCallback) {
+        globalThis.requestIdleCallback = previousRequestIdleCallback;
+      } else {
+        Reflect.deleteProperty(globalThis, "requestIdleCallback");
+      }
+      if (previousCancelIdleCallback) {
+        globalThis.cancelIdleCallback = previousCancelIdleCallback;
+      } else {
+        Reflect.deleteProperty(globalThis, "cancelIdleCallback");
+      }
+    }
+  });
+
+  it("continues a default render when a transition update arrives", async () => {
+    const previousRequestIdleCallback = globalThis.requestIdleCallback;
+    const previousCancelIdleCallback = globalThis.cancelIdleCallback;
+    const idleCallbacks: IdleRequestCallback[] = [];
+    let callbackId = 0;
+
+    globalThis.requestIdleCallback = vi.fn((callback) => {
+      idleCallbacks.push(callback);
+      return ++callbackId;
+    });
+    globalThis.cancelIdleCallback = vi.fn();
+
+    try {
+      const container = document.createElement("div");
+      const internalRoot = getOrCreateRoot(container);
+      const root = createRoot(container);
+      const renderedStates: number[] = [];
+      const committedStates: number[] = [];
+      let setCount!: (update: (count: number) => number) => void;
+
+      function Counter() {
+        const [count, updateCount] = useState(0);
+        setCount = updateCount;
+        renderedStates.push(count);
+        useEffect(() => {
+          committedStates.push(count);
+        }, [count]);
+        return h("span", null, count);
+      }
+
+      root.render(h(Counter, null));
+      await vi.advanceTimersByTimeAsync(0);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+
+      setCount((count) => count + 1);
+      await vi.advanceTimersByTimeAsync(0);
+      let deadlineChecks = 0;
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => (deadlineChecks++ === 0 ? 100 : 0),
+      });
+
+      expect(container.textContent).toBe("0");
+      expect(renderedStates).toEqual([0, 1]);
+      expect(internalRoot.renderLanes).toBe(DefaultLane);
+
+      startTransition(() => setCount((count) => count + 10));
+      expect(internalRoot.interleavedUpdatedLanes).toBe(TransitionLane);
+      await vi.advanceTimersByTimeAsync(0);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+
+      expect(container.textContent).toBe("1");
+      expect(renderedStates).toEqual([0, 1]);
+      expect(committedStates).toEqual([0, 1]);
+      expect(internalRoot.finishedLanes).toBe(DefaultLane);
+      expect(internalRoot.pendingLanes).toBe(TransitionLane);
+
+      await vi.advanceTimersByTimeAsync(0);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+
+      expect(container.textContent).toBe("11");
+      expect(renderedStates).toEqual([0, 1, 11]);
+      expect(committedStates).toEqual([0, 1, 11]);
+      expect(internalRoot.pendingLanes).toBe(NoLane);
     } finally {
       __resetSchedulerForTests();
       if (previousRequestIdleCallback) {
@@ -620,6 +801,7 @@ describe("Koact runtime", () => {
 
   it("discards queued state updates when the root unmounts", async () => {
     const container = document.createElement("div");
+    const internalRoot = getOrCreateRoot(container);
     const root = createRoot(container);
     let setCount!: (value: number) => void;
 
@@ -637,6 +819,9 @@ describe("Koact runtime", () => {
     await flushWork();
 
     expect(container.textContent).toBe("");
+    expect(internalRoot.status).toBe("unmounted");
+    expect(internalRoot.pendingLanes).toBe(NoLane);
+    expect(internalRoot.interleavedUpdatedLanes).toBe(NoLane);
     setCount(2);
     await flushWork();
     expect(container.textContent).toBe("");

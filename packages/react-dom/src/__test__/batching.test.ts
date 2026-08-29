@@ -18,6 +18,7 @@ function createTestRoot(flush: () => void): FiberRoot {
     pendingLanes: NoLane,
     renderLanes: NoLane,
     finishedLanes: NoLane,
+    interleavedUpdatedLanes: NoLane,
     callbackPriority: NoLane,
     updateVersion: 0,
     renderVersion: 0,

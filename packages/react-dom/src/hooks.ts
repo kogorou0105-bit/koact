@@ -121,7 +121,7 @@ export function useState<T>(
       const lane = requestUpdateLane();
       enqueueUpdate(queue, action, lane);
       markUpdateLaneFromFiberToRoot(queue.fiber, lane);
-      queue.root.schedule();
+      queue.root.schedule(lane);
     };
     hook.queue = queue;
     hook.initialized = true;

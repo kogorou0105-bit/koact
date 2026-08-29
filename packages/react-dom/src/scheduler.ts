@@ -11,9 +11,11 @@ import { performUnitOfWork } from "./reconciler";
 import { commitRoot } from "./commit";
 import {
   getHighestPriorityLane,
+  isHigherPriorityLane,
   mergeLanes,
   NoLane,
   SyncLane,
+  type Lane,
 } from "./lanes";
 
 type HostCallbackHandle =
@@ -54,11 +56,31 @@ function dequeueRoot() {
   return root;
 }
 
-function scheduleUpdateOnRoot(root: FiberRoot) {
-  if (root.status !== "active") return;
-
+function scheduleUpdateOnRoot(root: FiberRoot, lane: Lane) {
+  if (root.workInProgress) {
+    root.interleavedUpdatedLanes = mergeLanes(
+      root.interleavedUpdatedLanes,
+      lane,
+    );
+  }
   root.updateVersion++;
   scheduleBatchedRoot(root);
+}
+
+function shouldRestartRender(root: FiberRoot) {
+  const updatedLane = getHighestPriorityLane(root.interleavedUpdatedLanes);
+  return (
+    updatedLane !== NoLane &&
+    (updatedLane === root.renderLanes ||
+      isHigherPriorityLane(updatedLane, root.renderLanes))
+  );
+}
+
+function discardWorkInProgress(root: FiberRoot) {
+  root.workInProgress = null;
+  root.nextUnitOfWork = null;
+  root.renderLanes = NoLane;
+  root.deletions = [];
 }
 
 function prepareFreshStack(root: FiberRoot) {
@@ -68,6 +90,7 @@ function prepareFreshStack(root: FiberRoot) {
   root.renderVersion = root.updateVersion;
   root.renderLanes = getHighestPriorityLane(root.pendingLanes);
   root.finishedLanes = NoLane;
+  root.interleavedUpdatedLanes = NoLane;
   root.deletions = [];
   root.workInProgress = {
     root,
@@ -83,11 +106,9 @@ function prepareFreshStack(root: FiberRoot) {
 }
 
 function abortRoot(root: FiberRoot, error: unknown) {
-  root.workInProgress = null;
-  root.nextUnitOfWork = null;
-  root.renderLanes = NoLane;
+  discardWorkInProgress(root);
   root.finishedLanes = NoLane;
-  root.deletions = [];
+  root.interleavedUpdatedLanes = NoLane;
   reportError(error);
 }
 
@@ -104,6 +125,9 @@ function performWorkUntilDeadline(deadline: IdleDeadline) {
 
     let didError = false;
     try {
+      if (root.nextUnitOfWork && shouldRestartRender(root)) {
+        discardWorkInProgress(root);
+      }
       if (!root.nextUnitOfWork) prepareFreshStack(root);
 
       while (
@@ -127,10 +151,8 @@ function performWorkUntilDeadline(deadline: IdleDeadline) {
 
     if (!root.workInProgress) continue;
 
-    if (root.renderVersion !== root.updateVersion) {
-      root.workInProgress = null;
-      root.renderLanes = NoLane;
-      root.deletions = [];
+    if (shouldRestartRender(root)) {
+      discardWorkInProgress(root);
       enqueueRoot(root);
       continue;
     }
@@ -148,6 +170,9 @@ function performWorkUntilDeadline(deadline: IdleDeadline) {
     ) {
       root.status = "unmounted";
       root.current = null;
+      root.pendingLanes = NoLane;
+      root.interleavedUpdatedLanes = NoLane;
+      root.callbackPriority = NoLane;
       rootsByContainer.delete(root.container);
       allRoots.delete(root);
     } else if (
@@ -213,11 +238,12 @@ export function getOrCreateRoot(container: HTMLElement): FiberRoot {
     pendingLanes: NoLane,
     renderLanes: NoLane,
     finishedLanes: NoLane,
+    interleavedUpdatedLanes: NoLane,
     callbackPriority: NoLane,
     updateVersion: 0,
     renderVersion: 0,
     status: "active",
-    schedule: () => scheduleUpdateOnRoot(root),
+    schedule: (lane) => scheduleUpdateOnRoot(root, lane),
     flush: () => enqueueRoot(root),
   };
 
@@ -233,7 +259,7 @@ export function updateContainer(element: ReactNode, root: FiberRoot) {
 
   root.element = element;
   root.pendingLanes = mergeLanes(root.pendingLanes, SyncLane);
-  root.schedule();
+  root.schedule(SyncLane);
 }
 
 export function unmountContainer(root: FiberRoot) {
@@ -242,8 +268,7 @@ export function unmountContainer(root: FiberRoot) {
   root.status = "unmounting";
   root.element = null;
   root.pendingLanes = mergeLanes(root.pendingLanes, SyncLane);
-  root.updateVersion++;
-  scheduleBatchedRoot(root);
+  root.schedule(SyncLane);
 }
 
 export function __resetSchedulerForTests() {
@@ -259,6 +284,7 @@ export function __resetSchedulerForTests() {
     root.pendingLanes = NoLane;
     root.renderLanes = NoLane;
     root.finishedLanes = NoLane;
+    root.interleavedUpdatedLanes = NoLane;
     root.callbackPriority = NoLane;
     root.deletions = [];
   });

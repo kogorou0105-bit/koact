@@ -9,7 +9,7 @@ Koact 已经具备 Fiber 树、可中断 Render、统一 Commit、Hooks、多 Ro
 reconciliation、effect/ref 生命周期、环形 UpdateQueue 和自动批处理。当前更新系统仍有以下边界：
 
 - `useState` 已支持 `DefaultLane/TransitionLane` 和 Rebase，单 Root 会分轮处理最高优先级 Lane。
-- Root 仍通过版本号废弃任意过期 WIP，尚未根据 Lane 判断继续、重启或抢占。
+- Root 会记录 Render 期间到达的 Lane：同优或更高优更新重启 WIP，低优更新继续等待。
 - 同一 JavaScript 回调中的多次更新通过微任务合并 Root 调度。
 - 每个函数组件都会重新执行，没有 `memo` 和基于子树优先级的 Bailout。
 
@@ -318,10 +318,11 @@ SharedInternals.currentTransition
 
 ### 6.4 Lane 调度与抢占
 
-实施状态：单个 Root 已能选择最高优先级 pending Lane 分轮 Render，并在 Commit 后自动调度
-剩余 Lane；跨 Root 优先级选择、Host Callback 优先级和进行中 WIP 抢占尚未实现。
+实施状态：单个 Root 已能选择最高优先级 pending Lane 分轮 Render，并通过
+`interleavedUpdatedLanes` 抢占低优 WIP 或继续当前高优 Render；跨 Root 优先级选择和 Host
+Callback 优先级尚未实现。
 
-当前版本号模型会在任意新更新到来时废弃 WIP。改造后使用 Lane 判断：
+当前使用 Lane 判断活跃 WIP 的处理方式：
 
 - 新 Lane 高于 `root.renderLanes`：废弃当前 WIP，先渲染高优更新。
 - 新 Lane 等于当前 Lane：重新开始当前 Root，避免遗漏 Render 期间更新。
@@ -407,7 +408,7 @@ commit(root, finishedLanes)
 - 每个 update、Fiber 和 Root 都具有可追踪的 Lane。
 - 高优更新能够中断低优 WIP，且不会丢失低优 action。
 - `startTransition` API 可用于示例并具有确定性测试。
-- 版本号仅用于检测同 Lane 的 Render 期间更新，不再承担优先级职责。
+- 版本号只跟踪 Render 期间是否有更新和卸载完成状态，不再承担优先级判断。
 
 ## 7. 阶段 C：memo 与 Fiber Bailout
 
