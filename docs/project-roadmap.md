@@ -110,8 +110,8 @@ docs: document concurrent scheduling semantics
 - [x] 增加 `update-scheduled`、`render-start`、`render-yield`、`render-abort` 和 `commit` 事件。
 - [x] 事件包含 Root 标识、Lane、时间戳和本轮处理 Fiber 数量。
 - [x] 保证 DevTools 监听器异常不会影响调度和 Commit。
-- [ ] 将现有 Fiber 树面板升级为调度时间线。
-- [ ] 展示每次更新的 Lane、Yield、Abort、Commit 和耗时。
+- [x] 将现有 Fiber 树面板升级为调度时间线，并保留历史 Commit 树快照回看。
+- [x] 展示每次更新的 Lane、Yield、Abort、Commit、耗时和处理 Fiber 数量。
 - [ ] 新增 `examples/concurrent-lab`，使用 5000 项列表演示输入更新和 Transition 过滤。
 - [ ] 建立可重复 Benchmark，保存运行参数和原始结果。
 

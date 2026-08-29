@@ -387,6 +387,12 @@ commit(root, finishedLanes)
 事件携带稳定 Root ID、Lane、时间戳和本轮处理 Fiber 数量；Yield、Abort 和 Commit 还包含
 自 `render-start` 起算的墙钟耗时。事件只描述已经发生的事实，监听器异常不会改变调度结果。
 
+Vite DevTools 面板通过 `__KOACT_DEVTOOLS_HOOK__.emit(type, data)` 消费事件，保留最近
+100 条记录，并使用独立颜色区分 Sync、Default 和 Transition Lane。每条记录展示相对时间、
+Render 耗时、已处理 Fiber 数量及 Abort 原因；面板只在可见时异步生成 Fiber 图，单图最多
+250 个节点并保留最近 20 份快照，避免观测逻辑无界阻塞 Commit。选择有快照的 Commit 记录
+可以回看对应 Fiber 树，事件列表与树图在窄屏下改为上下布局。
+
 ### 6.7 阶段 B 测试
 
 `packages/react-dom/src/__test__/lanes.test.ts` 已覆盖 Lane 位运算；后续继续覆盖：
