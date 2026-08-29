@@ -320,7 +320,8 @@ SharedInternals.currentTransition
 
 实施状态：单个 Root 已能选择最高优先级 pending Lane 分轮 Render，并通过
 `interleavedUpdatedLanes` 抢占低优 WIP 或继续当前高优 Render；`getNextRoot` 会跨 Root 选择
-最高 pending Lane，并让同优 Root 按 FIFO 轮转。Host Callback 优先级尚未实现。
+最高 pending Lane，并让同优 Root 按 FIFO 轮转。Host Callback 会按 Lane 限制本轮工作，
+Sync 使用微任务，优先级提升时取消旧回调并用 generation 阻止陈旧回调执行。
 
 当前使用 Lane 判断活跃 WIP 的处理方式：
 

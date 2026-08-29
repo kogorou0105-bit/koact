@@ -12,7 +12,7 @@ Koact 是一个使用 TypeScript 从零实现的 React-like Runtime，用于研�
 | --- | --- |
 | Element | JSX、文本节点、数组与空节点归一化、Fragment、函数组件 |
 | Fiber | Begin/Complete 深度优先遍历、current/WIP 隔离、`childLanes` 聚合 |
-| Scheduler | 基于 deadline 的可中断 Render、Lane 抢占、跨 Root 优先级与公平轮转 |
+| Scheduler | Sync 微任务、可中断 Host Callback、Lane 抢占、跨 Root 优先级与公平轮转 |
 | Reconciler | 基于 key 与 type 的节点复用、移动检测、删除收集、DOM identity 保持 |
 | Hooks | `useState`、`useEffect`、`useMemo`、`useCallback`、`useRef`、Hook 顺序校验 |
 | State | O(1) 入队的环形 UpdateQueue、函数式更新、按 Lane 跳过与 Rebase |
@@ -108,7 +108,7 @@ GitHub Actions 会在 push 和 pull request 中使用冻结锁文件重复执行
 
 ## 当前边界
 
-- `startTransition` 已能为同步 scope 内的 state 更新分配 `TransitionLane`，调度器会跨 Root 选择最高优先级，并允许高优更新抢占低优 WIP；Host Callback 优先级替换尚未实现。
+- `startTransition` 已能为同步 scope 内的 state 更新分配 `TransitionLane`，调度器会跨 Root 选择最高优先级，并允许高优更新替换 Host Callback、抢占低优 WIP；尚未实现到期时间和饥饿任务升级。
 - 尚未实现 Suspense、Error Boundary、Context、SSR、Hydration 或 Server Components。
 - `useEffect` 在 Commit 中同步执行，尚未拆分 layout 与 passive effect 阶段。
 - DOM 事件使用逐节点原生监听，尚未实现 Root 事件委托和合成事件。

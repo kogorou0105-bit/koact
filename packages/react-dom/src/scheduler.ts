@@ -20,6 +20,7 @@ import {
 } from "./lanes";
 
 type HostCallbackHandle =
+  | { kind: "microtask"; generation: number }
   | { kind: "idle"; id: number }
   | { kind: "timeout"; id: ReturnType<typeof setTimeout> };
 
@@ -28,6 +29,8 @@ const scheduledRootSet = new Set<FiberRoot>();
 const allRoots = new Set<FiberRoot>();
 let rootsByContainer = new WeakMap<HTMLElement, FiberRoot>();
 let hostCallback: HostCallbackHandle | null = null;
+let hostCallbackPriority: Lane = NoLane;
+let hostCallbackGeneration = 0;
 
 function reportError(error: unknown) {
   if (typeof globalThis.reportError === "function") {
@@ -38,17 +41,23 @@ function reportError(error: unknown) {
 }
 
 function enqueueRoot(root: FiberRoot) {
-  if (
-    root.status === "unmounted" ||
-    root.pendingLanes === NoLane ||
-    scheduledRootSet.has(root)
-  ) {
-    return;
-  }
+  if (root.status === "unmounted" || root.pendingLanes === NoLane) return;
 
-  scheduledRootSet.add(root);
-  scheduledRoots.push(root);
+  root.callbackPriority = getHighestPriorityLane(root.pendingLanes);
+  if (!scheduledRootSet.has(root)) {
+    scheduledRootSet.add(root);
+    scheduledRoots.push(root);
+  }
   requestHostCallback();
+}
+
+function getHighestScheduledLane() {
+  let highestLane: Lane = NoLane;
+  for (const root of scheduledRoots) {
+    const lane = getHighestPriorityLane(root.pendingLanes);
+    if (isHigherPriorityLane(lane, highestLane)) highestLane = lane;
+  }
+  return highestLane;
 }
 
 function getNextRoot() {
@@ -65,7 +74,10 @@ function getNextRoot() {
   }
 
   const [root] = scheduledRoots.splice(nextIndex, 1);
-  if (root) scheduledRootSet.delete(root);
+  if (root) {
+    scheduledRootSet.delete(root);
+    root.callbackPriority = NoLane;
+  }
   return root || null;
 }
 
@@ -126,12 +138,15 @@ function abortRoot(root: FiberRoot, error: unknown) {
   reportError(error);
 }
 
-function performWorkUntilDeadline(deadline: IdleDeadline) {
-  hostCallback = null;
+function performWorkUntilDeadline(
+  deadline: IdleDeadline,
+  callbackPriority: Lane,
+) {
   let didPerformWork = false;
 
   while (
     scheduledRoots.length > 0 &&
+    !isHigherPriorityLane(callbackPriority, getHighestScheduledLane()) &&
     (!didPerformWork || deadline.timeRemaining() >= 1)
   ) {
     const root = getNextRoot();
@@ -201,11 +216,33 @@ function performWorkUntilDeadline(deadline: IdleDeadline) {
 }
 
 function requestHostCallback() {
-  if (hostCallback) return;
+  const nextPriority = getHighestScheduledLane();
+  if (nextPriority === NoLane) return;
+
+  if (hostCallback) {
+    if (!isHigherPriorityLane(nextPriority, hostCallbackPriority)) return;
+    cancelHostCallback();
+  }
+
+  const generation = ++hostCallbackGeneration;
+  hostCallbackPriority = nextPriority;
+
+  if (nextPriority === SyncLane) {
+    hostCallback = { kind: "microtask", generation };
+    enqueueMicrotask(() => {
+      runHostCallback(generation, nextPriority, {
+        didTimeout: true,
+        timeRemaining: () => Number.POSITIVE_INFINITY,
+      });
+    });
+    return;
+  }
 
   if (typeof globalThis.requestIdleCallback === "function") {
     const id = globalThis.requestIdleCallback((deadline) => {
-      performWorkUntilDeadline(
+      runHostCallback(
+        generation,
+        nextPriority,
         deadline || { didTimeout: false, timeRemaining: () => 5 },
       );
     });
@@ -215,7 +252,7 @@ function requestHostCallback() {
 
   const id = globalThis.setTimeout(() => {
     const start = performance.now();
-    performWorkUntilDeadline({
+    runHostCallback(generation, nextPriority, {
       didTimeout: false,
       timeRemaining: () => Math.max(0, 5 - (performance.now() - start)),
     });
@@ -223,9 +260,30 @@ function requestHostCallback() {
   hostCallback = { kind: "timeout", id };
 }
 
+function enqueueMicrotask(callback: () => void) {
+  if (typeof globalThis.queueMicrotask === "function") {
+    globalThis.queueMicrotask(callback);
+  } else {
+    void Promise.resolve().then(callback);
+  }
+}
+
+function runHostCallback(
+  generation: number,
+  priority: Lane,
+  deadline: IdleDeadline,
+) {
+  if (generation !== hostCallbackGeneration) return;
+
+  hostCallback = null;
+  hostCallbackPriority = NoLane;
+  performWorkUntilDeadline(deadline, priority);
+}
+
 function cancelHostCallback() {
   if (!hostCallback) return;
 
+  hostCallbackGeneration++;
   if (
     hostCallback.kind === "idle" &&
     typeof globalThis.cancelIdleCallback === "function"
@@ -235,6 +293,7 @@ function cancelHostCallback() {
     globalThis.clearTimeout(hostCallback.id);
   }
   hostCallback = null;
+  hostCallbackPriority = NoLane;
 }
 
 export function getOrCreateRoot(container: HTMLElement): FiberRoot {

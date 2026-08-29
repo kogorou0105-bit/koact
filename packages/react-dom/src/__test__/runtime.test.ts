@@ -260,10 +260,6 @@ describe("Koact runtime", () => {
 
       root.render(h(Counter, null));
       await vi.advanceTimersByTimeAsync(0);
-      idleCallbacks.shift()!({
-        didTimeout: false,
-        timeRemaining: () => 100,
-      });
 
       updateCount((value) => value + 1);
       startTransition(() => updateCount((value) => value * 10));
@@ -334,31 +330,34 @@ describe("Koact runtime", () => {
 
       root.render(h(Counter, null));
       await vi.advanceTimersByTimeAsync(0);
-      idleCallbacks.shift()!({
-        didTimeout: false,
-        timeRemaining: () => 100,
-      });
 
       startTransition(() => setCount(1));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(internalRoot.callbackPriority).toBe(TransitionLane);
+
       root.render(h("p", null, "replacement"));
       await vi.advanceTimersByTimeAsync(0);
-      idleCallbacks.shift()!({
-        didTimeout: false,
-        timeRemaining: () => 100,
-      });
 
       expect(container.textContent).toBe("replacement");
       expect(internalRoot.finishedLanes).toBe(SyncLane);
       expect(internalRoot.pendingLanes).toBe(TransitionLane);
+      expect(internalRoot.callbackPriority).toBe(TransitionLane);
       expect(internalRoot.current!.childLanes).toBe(NoLane);
+      expect(globalThis.cancelIdleCallback).toHaveBeenCalledTimes(1);
 
-      await vi.advanceTimersByTimeAsync(0);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+      expect(internalRoot.pendingLanes).toBe(TransitionLane);
+
       idleCallbacks.shift()!({
         didTimeout: false,
         timeRemaining: () => 100,
       });
 
       expect(internalRoot.pendingLanes).toBe(NoLane);
+      expect(internalRoot.callbackPriority).toBe(NoLane);
       expect(internalRoot.current!.childLanes).toBe(NoLane);
     } finally {
       __resetSchedulerForTests();
@@ -590,10 +589,6 @@ describe("Koact runtime", () => {
       transitionRoot.render(h(TransitionCounter, null));
       syncRoot.render(h(SyncValue, { value: 0 }));
       await vi.advanceTimersByTimeAsync(0);
-      idleCallbacks.shift()!({
-        didTimeout: false,
-        timeRemaining: () => 100,
-      });
       commitOrder.length = 0;
 
       startTransition(() => setTransitionCount(1));
@@ -609,6 +604,15 @@ describe("Koact runtime", () => {
 
       syncRoot.render(h(SyncValue, { value: 1 }));
       await vi.advanceTimersByTimeAsync(0);
+
+      expect(commitOrder).toEqual(["sync:1"]);
+      expect(globalThis.cancelIdleCallback).toHaveBeenCalledTimes(1);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+      expect(commitOrder).toEqual(["sync:1"]);
+
       idleCallbacks.shift()!({
         didTimeout: false,
         timeRemaining: () => 100,
@@ -668,10 +672,6 @@ describe("Koact runtime", () => {
       firstRoot.render(h(Counter, { name: "first" }));
       secondRoot.render(h(Counter, { name: "second" }));
       await vi.advanceTimersByTimeAsync(0);
-      idleCallbacks.shift()!({
-        didTimeout: false,
-        timeRemaining: () => 100,
-      });
       commitOrder.length = 0;
 
       setFirst(1);
@@ -741,10 +741,6 @@ describe("Koact runtime", () => {
 
       root.render(h(Counter, null));
       await vi.advanceTimersByTimeAsync(0);
-      idleCallbacks.shift()!({
-        didTimeout: false,
-        timeRemaining: () => 100,
-      });
       expect(container.textContent).toBe("0");
 
       setCount((count) => count + 1);
@@ -826,10 +822,6 @@ describe("Koact runtime", () => {
 
       root.render(h(Counter, null));
       await vi.advanceTimersByTimeAsync(0);
-      idleCallbacks.shift()!({
-        didTimeout: false,
-        timeRemaining: () => 100,
-      });
 
       startTransition(() => setCount((count) => count + 10));
       await vi.advanceTimersByTimeAsync(0);
@@ -848,6 +840,13 @@ describe("Koact runtime", () => {
       setCount((count) => count + 1);
       expect(internalRoot.interleavedUpdatedLanes).toBe(DefaultLane);
       await vi.advanceTimersByTimeAsync(0);
+      expect(globalThis.cancelIdleCallback).toHaveBeenCalledTimes(1);
+      idleCallbacks.shift()!({
+        didTimeout: false,
+        timeRemaining: () => 100,
+      });
+      expect(container.textContent).toBe("0");
+
       idleCallbacks.shift()!({
         didTimeout: false,
         timeRemaining: () => 100,
@@ -919,10 +918,6 @@ describe("Koact runtime", () => {
 
       root.render(h(Counter, null));
       await vi.advanceTimersByTimeAsync(0);
-      idleCallbacks.shift()!({
-        didTimeout: false,
-        timeRemaining: () => 100,
-      });
 
       setCount((count) => count + 1);
       await vi.advanceTimersByTimeAsync(0);
@@ -1409,9 +1404,20 @@ describe("Koact runtime", () => {
 
     try {
       const container = document.createElement("div");
-      ReactDOM.render(h("span", null, "fallback"), container);
+      const root = createRoot(container);
+      let setCount!: (value: number) => void;
+
+      function Counter() {
+        const [count, updateCount] = useState(0);
+        setCount = updateCount;
+        return h("span", null, `fallback:${count}`);
+      }
+
+      root.render(h(Counter, null));
       await flushWork();
-      expect(container.textContent).toBe("fallback");
+      setCount(1);
+      await flushWork();
+      expect(container.textContent).toBe("fallback:1");
     } finally {
       globalThis.requestIdleCallback = requestIdleCallback;
       globalThis.cancelIdleCallback = cancelIdleCallback;
