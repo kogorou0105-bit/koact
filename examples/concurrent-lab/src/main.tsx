@@ -1,4 +1,5 @@
 import Koact, {
+  memo,
   startTransition,
   useEffect,
   useRef,
@@ -58,9 +59,9 @@ const ITEMS: CatalogItem[] = Array.from({ length: 5000 }, (_, index) => {
   };
 });
 
-const BENCHMARK_MODE = new URLSearchParams(window.location.search).has(
-  "benchmark",
-);
+const SEARCH_PARAMS = new URLSearchParams(window.location.search);
+const BENCHMARK_MODE = SEARCH_PARAMS.has("benchmark");
+const MEMO_ROWS_ENABLED = SEARCH_PARAMS.get("memo") !== "0";
 let updateControlQuery: (value: string) => void = () => {};
 let updateCatalogFilter: (value: string) => void = () => {};
 let interruptCatalog: () => void = () => {};
@@ -159,7 +160,9 @@ function ControlDeck() {
         <div>
           <span className="telemetry-light neutral-light"></span>
           <small>WORKLOAD</small>
-          <strong>5,000 keyed rows</strong>
+          <strong>
+            5,000 {MEMO_ROWS_ENABLED ? "memoized" : "plain"} rows
+          </strong>
         </div>
       </section>
 
@@ -250,16 +253,13 @@ function Catalog() {
         className="catalog-grid"
         aria-hidden={BENCHMARK_MODE ? true : undefined}
       >
-        {visibleItems.map((item) => (
-          <li key={item.id} className="catalog-row">
-            <span className="record-code">#{item.code}</span>
-            <span className="record-copy">
-              <strong>{item.title}</strong>
-              <small>{item.detail}</small>
-            </span>
-            <span className="record-topic">{item.topic}</span>
-          </li>
-        ))}
+        {visibleItems.map((item) =>
+          MEMO_ROWS_ENABLED ? (
+            <MemoCatalogRow key={item.id} item={item} />
+          ) : (
+            createCatalogRow(item, item.id)
+          ),
+        )}
       </ul>
 
       {visibleItems.length === 0 && (
@@ -271,6 +271,25 @@ function Catalog() {
     </section>
   );
 }
+
+function CatalogRow({ item }: { item: CatalogItem }) {
+  return createCatalogRow(item);
+}
+
+function createCatalogRow(item: CatalogItem, key?: number) {
+  return (
+    <li key={key} className="catalog-row">
+      <span className="record-code">#{item.code}</span>
+      <span className="record-copy">
+        <strong>{item.title}</strong>
+        <small>{item.detail}</small>
+      </span>
+      <span className="record-topic">{item.topic}</span>
+    </li>
+  );
+}
+
+const MemoCatalogRow = memo(CatalogRow);
 
 const controlsContainer = document.getElementById("controls-root");
 const resultsContainer = document.getElementById("results-root");
@@ -287,6 +306,7 @@ if (BENCHMARK_MODE) {
       resultsContainer.querySelectorAll(".catalog-row").length,
     isReady: () => isControlReady && isCatalogReady,
     listSize: ITEMS.length,
+    memoRows: MEMO_ROWS_ENABLED,
   });
 }
 

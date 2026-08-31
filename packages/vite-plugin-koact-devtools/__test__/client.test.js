@@ -14,11 +14,13 @@ function loadClient() {
   Function(clientCode)();
 }
 
-function createFiberTree(childCount = 1, componentName = "App") {
+function createFiberTree(childCount = 1, componentName = "App", isMemo = false) {
   function Component() {}
   Component.displayName = componentName;
   const app = {
-    type: Component,
+    type: isMemo
+      ? { $$typeof: Symbol.for("koact.memo"), type: Component }
+      : Component,
     child: null,
     sibling: null,
   };
@@ -166,14 +168,14 @@ describe("Koact DevTools client", () => {
       timestamp: 16,
       elapsedTime: 1,
       processedFibers: 6,
-      root: createFiberTree(1, "LatestSnapshot"),
+      root: createFiberTree(1, "LatestSnapshot", true),
       deletions: [],
     });
 
     expect(mermaid.render).toHaveBeenCalledTimes(1);
     await vi.waitFor(() => expect(mermaid.render).toHaveBeenCalledTimes(2));
     const latestGraphDefinition = mermaid.render.mock.calls[1][1];
-    expect(latestGraphDefinition).toContain("LatestSnapshot");
+    expect(latestGraphDefinition).toContain("Memo(LatestSnapshot)");
     expect(latestGraphDefinition).not.toContain("DiscardedSnapshot");
 
     for (let index = 0; index < 105; index += 1) {

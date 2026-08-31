@@ -580,6 +580,16 @@
     if (typeof fiber.type === "function") {
       return fiber.type.displayName || fiber.type.name || "Anonymous";
     }
+    if (
+      fiber.type?.$$typeof === Symbol.for("koact.memo") &&
+      typeof fiber.type.type === "function"
+    ) {
+      const component = fiber.type.type;
+      return (
+        fiber.type.displayName ||
+        `Memo(${component.displayName || component.name || "Anonymous"})`
+      );
+    }
     if (typeof fiber.type === "string") return fiber.type;
     return "Fragment";
   };

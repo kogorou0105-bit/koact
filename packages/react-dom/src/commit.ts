@@ -1,15 +1,8 @@
 import { updateDom } from "./dom";
 import { getEventTimestamp, KoactEvents } from "./events";
 import { mergeLanes, NoLane, removeLanes } from "./lanes";
+import { reportError } from "./reportError";
 import type { Fiber, FiberRoot, Hook } from "./types";
-
-function reportError(error: unknown) {
-  if (typeof globalThis.reportError === "function") {
-    globalThis.reportError(error);
-  } else {
-    console.error(error);
-  }
-}
 
 function visitTree(fiber: Fiber | undefined, visitor: (fiber: Fiber) => void) {
   if (!fiber) return;
@@ -57,7 +50,7 @@ function detachDeletedStateQueues(fiber: Fiber) {
 
 function detachDeletedRefs(fiber: Fiber) {
   visitSubtree(fiber, (node) => {
-    if (node.dom && node.props.ref) setRef(node.props.ref, null);
+    if (node.dom && node.ref) setRef(node.ref, null);
   });
 }
 
@@ -81,11 +74,7 @@ function cleanupDeletedEffects(fiber: Fiber) {
 
 function removeDeletedDom(fiber: Fiber) {
   if (fiber.dom) {
-    try {
-      fiber.dom.parentNode?.removeChild(fiber.dom);
-    } catch (error) {
-      reportError(error);
-    }
+    fiber.dom.parentNode?.removeChild(fiber.dom);
     return;
   }
 
@@ -96,19 +85,14 @@ function removeDeletedDom(fiber: Fiber) {
   }
 }
 
-function commitDeletionMutation(fiber: Fiber) {
-  detachDeletedStateQueues(fiber);
-  removeDeletedDom(fiber);
-}
-
 function commitDomUpdates(fiber?: Fiber) {
   visitTree(fiber, (node) => {
     if (node.dom && node.alternate && typeof node.type === "string") {
-      try {
-        updateDom(node.dom, node.alternate.props, node.props);
-      } catch (error) {
-        reportError(error);
-      }
+      updateDom(
+        node.dom,
+        node.alternate.memoizedProps || {},
+        node.pendingProps,
+      );
     }
   });
 }
@@ -139,29 +123,22 @@ function syncHostChildren(parentFiber: Fiber) {
     if (childDom === currentDomChild) {
       currentDomChild = currentDomChild.nextSibling;
     } else {
-      try {
-        parentDom.insertBefore(childDom, currentDomChild);
-      } catch (error) {
-        reportError(error);
-      }
+      parentDom.insertBefore(childDom, currentDomChild);
     }
   });
 
   while (currentDomChild) {
     const nextSibling = currentDomChild.nextSibling;
-    try {
-      parentDom.removeChild(currentDomChild);
-    } catch (error) {
-      reportError(error);
-    }
+    parentDom.removeChild(currentDomChild);
     currentDomChild = nextSibling;
   }
 
   hostChildren.forEach(syncHostChildren);
 }
 
-function commitStateQueues(fiber?: Fiber) {
+function publishFiberMetadata(fiber?: Fiber) {
   visitTree(fiber, (node) => {
+    node.memoizedProps = node.pendingProps;
     let hook = node.memoizedState;
     while (hook) {
       if (hook.tag === "STATE" && hook.queue) {
@@ -195,8 +172,8 @@ function detachChangedRefs(fiber?: Fiber) {
   visitTree(fiber, (node) => {
     if (!node.dom) return;
 
-    const previousRef = node.alternate?.props.ref;
-    const nextRef = node.props.ref;
+    const previousRef = node.alternate?.ref;
+    const nextRef = node.ref;
     if (previousRef && previousRef !== nextRef) setRef(previousRef, null);
   });
 }
@@ -205,8 +182,8 @@ function attachChangedRefs(fiber?: Fiber) {
   visitTree(fiber, (node) => {
     if (!node.dom) return;
 
-    const previousRef = node.alternate?.props.ref;
-    const nextRef = node.props.ref;
+    const previousRef = node.alternate?.ref;
+    const nextRef = node.ref;
     if (nextRef && previousRef !== nextRef) setRef(nextRef, node.dom);
   });
 }
@@ -260,12 +237,13 @@ export function commitRoot(root: FiberRoot) {
   if (!finishedWork) return;
 
   const deletions = [...root.deletions];
-  deletions.forEach(commitDeletionMutation);
+  deletions.forEach(removeDeletedDom);
   commitDomUpdates(finishedWork.child);
   syncHostChildren(finishedWork);
 
+  deletions.forEach(detachDeletedStateQueues);
   root.current = finishedWork;
-  commitStateQueues(finishedWork.child);
+  publishFiberMetadata(finishedWork);
   commitFinishedLanes(root, finishedWork);
   deletions.forEach(detachDeletedRefs);
   detachChangedRefs(finishedWork.child);

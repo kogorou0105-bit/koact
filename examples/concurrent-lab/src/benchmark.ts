@@ -31,6 +31,7 @@ type BenchmarkControls = {
   getRenderedCount: () => number;
   isReady: () => boolean;
   listSize: number;
+  memoRows: boolean;
 };
 
 type RenderAttempt = {
@@ -81,6 +82,7 @@ type BenchmarkReport = {
   parameters: Required<BenchmarkOptions> & {
     listSize: number;
     queries: string[];
+    memoRows: boolean;
   };
   roots: { control: number; catalog: number };
   summary: {
@@ -512,6 +514,7 @@ export function installBenchmarkRunner(controls: BenchmarkControls) {
             ...options,
             listSize: controls.listSize,
             queries,
+            memoRows: controls.memoRows,
           },
           roots: { control: controlRootId!, catalog: catalogRootId! },
           summary: {

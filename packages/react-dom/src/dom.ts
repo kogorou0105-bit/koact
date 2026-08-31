@@ -6,7 +6,7 @@ export function createDom(fiber: Fiber): HTMLElement | Text {
       ? document.createTextNode("")
       : document.createElement(fiber.type as string);
 
-  updateDom(dom, {}, fiber.props);
+  updateDom(dom, {}, fiber.pendingProps);
   return dom;
 }
 

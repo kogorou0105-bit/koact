@@ -53,7 +53,7 @@ const outputPath = path.resolve(
   ),
 );
 const sessionName = `koact-benchmark-${process.pid}`;
-const serverUrl = `http://127.0.0.1:${port}/?benchmark=1`;
+const serverUrl = `http://127.0.0.1:${port}/?benchmark=1&memo=0`;
 const viewport = { width: 1280, height: 720 };
 const temporaryDirectory = await mkdtemp(
   path.join(tmpdir(), "koact-benchmark-"),

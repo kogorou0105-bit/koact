@@ -1,7 +1,8 @@
 # Concurrent Lab Benchmark
 
 该基准在真实 Chrome 中运行 `examples/concurrent-lab`，用于记录 5000 行 Transition Render
-在 Default 更新干扰下的调度事件。它是回归证据，不是跨机器性能排名。
+在 Default 更新干扰下的调度事件。Runner 固定使用 `memo=0` 保持 P1.5 基线负载；页面默认的
+Memo 行用于 P2 Bailout 演示。该基准是回归证据，不是跨机器性能排名。
 
 ## 运行
 
@@ -32,6 +33,7 @@ pnpm benchmark:concurrent -- \
 - 原始结果记录完整 Chrome UA、viewport、CPU、内存、操作系统、Node 和
   `playwright-cli` 版本。
 - 5000 个 keyed 行，查询在 `record` 与空字符串间交替，两者都保留全部行。
+- 调度基准通过 `memo=0` 使用原始 host-row Fiber 形状，报告参数会记录 `memoRows: false`。
 - 每轮先安排 Control Root 的 Default 更新和 Catalog Root 的 Transition 更新。
 - 观察到 Transition `render-start` 后 8ms，向 Catalog Root 注入一次 Default 更新。
 - 默认预热 2 轮，再记录 20 轮；轮次串行执行。
@@ -75,3 +77,10 @@ pnpm benchmark:concurrent -- \
 20 个 measured sample 共发生 42 次 Yield 和 20 次 `higher-priority-update` Abort；每轮均为
 3 次 Catalog Render、2 次 Catalog Commit。完整逐轮数据见
 [`results/concurrent-lab.latest.json`](./results/concurrent-lab.latest.json)。
+
+## Memo Bailout 的确定性证据
+
+`packages/react-dom/src/__test__/memo.test.ts` 使用同一棵 5000 行树比较稳定重渲染：普通行处理
+15,003 个 Begin Work 单元并再次执行 5000 个行组件，Memo 行处理 5,003 个 Begin Work 单元且
+不再执行行组件。该断言随 `pnpm check` 运行，不受机器计时噪声影响。由于完整 Bailout 仍需递归
+克隆 Fiber，且 Commit 仍全树遍历，这组计数不等同于端到端耗时降低。

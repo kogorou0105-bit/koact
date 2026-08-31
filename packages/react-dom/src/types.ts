@@ -1,10 +1,11 @@
-import type { ReactElement, ReactNode } from "@koact/react";
+import type { ElementType, ReactNode, Ref } from "@koact/react";
 import type { Lane, Lanes } from "./lanes";
 
 export type EffectTag = "PLACEMENT" | "UPDATE" | "DELETION";
 export type RootStatus = "active" | "unmounting" | "unmounted";
 export type StateAction<T> = T | ((previousState: T) => T);
 export type StateDispatch<T> = (action: StateAction<T>) => void;
+export type FiberProps = Record<string, any> & { children?: ReactNode };
 
 export interface FiberRoot {
   id: number;
@@ -29,11 +30,10 @@ export interface FiberRoot {
 }
 
 export interface Fiber {
-  type?: string | Function | symbol;
-  props: {
-    children: ReactElement[];
-    [key: string]: any;
-  };
+  type?: ElementType;
+  pendingProps: FiberProps;
+  memoizedProps: FiberProps | null;
+  ref: Ref<any> | null;
   root: FiberRoot;
   lanes: Lanes;
   childLanes: Lanes;
@@ -42,6 +42,7 @@ export interface Fiber {
   child?: Fiber;
   sibling?: Fiber;
   alternate?: Fiber | null;
+  isBailoutClone?: boolean;
   effectTag?: EffectTag;
   key?: null | string | number;
   index?: number;

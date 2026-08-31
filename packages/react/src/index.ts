@@ -13,9 +13,23 @@ export type Dispatch<T> = (value: T) => void;
 export type RefObject<T> = { current: T };
 export type Ref<T> = RefObject<T | null> | ((value: T | null) => void);
 export type FunctionComponent<P = Record<string, unknown>> = (
-  props: P & { children?: ReactNode[] },
+  props: P & { children?: ReactNode },
 ) => ReactNode;
-export type ElementType = string | FunctionComponent<any> | symbol;
+export const MEMO_TYPE = Symbol.for("koact.memo");
+
+export interface MemoComponent<P = Record<string, unknown>> {
+  (props: P & { children?: ReactNode }): ReactNode;
+  $$typeof: typeof MEMO_TYPE;
+  type: FunctionComponent<P>;
+  compare: ((previous: P, next: P) => boolean) | null;
+  displayName?: string;
+}
+
+export type ElementType =
+  | string
+  | FunctionComponent<any>
+  | MemoComponent<any>
+  | symbol;
 export type ReactNode =
   | ReactElement
   | string
@@ -27,10 +41,9 @@ export type ReactNode =
 
 export interface ReactElement {
   type: ElementType;
-  props: {
-    children: ReactElement[];
-    [key: string]: any;
-  };
+  key: Key | null;
+  ref: Ref<any> | null;
+  props: Record<string, any> & { children?: ReactNode };
 }
 
 export function createElement(
@@ -38,21 +51,29 @@ export function createElement(
   props: any,
   ...children: ReactNode[]
 ): ReactElement {
+  const { key = null, ref = null, ...elementProps } = props || {};
+
+  if (children.length === 1) {
+    elementProps.children = children[0];
+  } else if (children.length > 1) {
+    elementProps.children = children;
+  }
+
   return {
     type,
-    props: {
-      ...(props || {}),
-      children: normalizeChildren(children),
-    },
+    key,
+    ref,
+    props: elementProps,
   };
 }
 
 function createTextElement(text: string | number): ReactElement {
   return {
     type: "TEXT_ELEMENT",
+    key: null,
+    ref: null,
     props: {
       nodeValue: text,
-      children: [],
     },
   };
 }
@@ -130,6 +151,20 @@ export function startTransition(scope: () => void): void {
   }
 }
 
+export function memo<P>(
+  component: FunctionComponent<P> & { $$typeof?: never },
+  compare?: (previous: P, next: P) => boolean,
+): MemoComponent<P> {
+  if (typeof component !== "function") {
+    throw new TypeError("memo expects a function component.");
+  }
+  return {
+    $$typeof: MEMO_TYPE,
+    type: component,
+    compare: compare ?? null,
+  } as MemoComponent<P>;
+}
+
 export const __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED = {
   SharedInternals,
   normalizeChildren,
@@ -137,6 +172,10 @@ export const __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED = {
 
 declare global {
   namespace JSX {
+    interface IntrinsicAttributes {
+      key?: Key;
+    }
+
     interface IntrinsicElements {
       [elemName: string]: any;
     }
@@ -152,6 +191,7 @@ const React = {
   useCallback,
   useRef,
   startTransition,
+  memo,
   __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED,
 };
 

@@ -1,13 +1,15 @@
 import {
   Fragment,
+  MEMO_TYPE,
   __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED,
   type FunctionComponent,
   type Key,
+  type MemoComponent,
   type ReactElement,
   type ReactNode,
 } from "@koact/react";
 import { createDom } from "./dom";
-import { mergeLanes, NoLane } from "./lanes";
+import { includesSomeLane, mergeLanes, NoLane } from "./lanes";
 import {
   bindWorkInProgressStateQueues,
   finishHooks,
@@ -24,15 +26,8 @@ export function performUnitOfWork(
   root: FiberRoot,
   fiber: Fiber,
 ): Fiber | null {
-  if (typeof fiber.type === "function") {
-    updateFunctionComponent(root, fiber);
-  } else if (fiber.type === Fragment) {
-    reconcileChildren(root, fiber, fiber.props.children);
-  } else {
-    updateHostComponent(root, fiber);
-  }
-
-  if (fiber.child) return fiber.child;
+  const next = beginWork(root, fiber);
+  if (next) return next;
 
   let nextFiber: Fiber | undefined = fiber;
   while (nextFiber) {
@@ -41,6 +36,31 @@ export function performUnitOfWork(
     nextFiber = nextFiber.parent;
   }
   return null;
+}
+
+function beginWork(root: FiberRoot, fiber: Fiber): Fiber | null {
+  const current = fiber.alternate;
+  if (
+    fiber.isBailoutClone &&
+    current &&
+    !includesSomeLane(fiber.lanes, root.renderLanes)
+  ) {
+    return bailoutOnAlreadyFinishedWork(root, current, fiber);
+  }
+  fiber.isBailoutClone = false;
+
+  if (isMemoComponent(fiber.type)) {
+    return updateMemoComponent(root, fiber, fiber.type);
+  }
+  if (typeof fiber.type === "function") {
+    updateFunctionComponent(root, fiber, fiber.type);
+  } else if (fiber.type === Fragment) {
+    reconcileChildren(root, fiber, fiber.pendingProps.children);
+  } else {
+    updateHostComponent(root, fiber);
+  }
+
+  return fiber.child || null;
 }
 
 function completeWork(fiber: Fiber) {
@@ -54,15 +74,18 @@ function completeWork(fiber: Fiber) {
   fiber.childLanes = childLanes;
 }
 
-function updateFunctionComponent(root: FiberRoot, fiber: Fiber) {
+function updateFunctionComponent(
+  root: FiberRoot,
+  fiber: Fiber,
+  component: FunctionComponent<any>,
+) {
   prepareToUseHooks(root, fiber);
   const previousDispatcher = SharedInternals.currentDispatcher;
   SharedInternals.currentDispatcher = HooksDispatcher;
 
   let output: ReactNode;
   try {
-    const component = fiber.type as FunctionComponent<any>;
-    output = component(fiber.props);
+    output = component(fiber.pendingProps);
     finishHooks();
   } finally {
     SharedInternals.currentDispatcher = previousDispatcher;
@@ -74,12 +97,121 @@ function updateFunctionComponent(root: FiberRoot, fiber: Fiber) {
 
 function updateHostComponent(root: FiberRoot, fiber: Fiber) {
   if (!fiber.dom) fiber.dom = createDom(fiber);
-  reconcileChildren(root, fiber, fiber.props.children);
+  reconcileChildren(root, fiber, fiber.pendingProps.children);
 }
 
 function getElementKey(element: ReactElement): Key | null {
-  const key = element.props.key;
-  return key === undefined || key === null ? null : key;
+  return element.key === undefined || element.key === null ? null : element.key;
+}
+
+function isMemoComponent(type: Fiber["type"]): type is MemoComponent<any> {
+  const candidate = type as unknown as { $$typeof?: symbol } | null;
+  return (
+    typeof candidate === "object" &&
+    candidate !== null &&
+    candidate.$$typeof === MEMO_TYPE
+  );
+}
+
+function shallowEqual(
+  previous: Record<string, unknown>,
+  next: Record<string, unknown>,
+) {
+  if (Object.is(previous, next)) return true;
+
+  const previousKeys = Object.keys(previous);
+  const nextKeys = Object.keys(next);
+  if (previousKeys.length !== nextKeys.length) return false;
+
+  return previousKeys.every(
+    (key) =>
+      Object.prototype.hasOwnProperty.call(next, key) &&
+      Object.is(previous[key], next[key]),
+  );
+}
+
+function updateMemoComponent(
+  root: FiberRoot,
+  fiber: Fiber,
+  memoType: MemoComponent<any>,
+): Fiber | null {
+  const current = fiber.alternate;
+  if (
+    current?.memoizedProps &&
+    current.ref === fiber.ref &&
+    !includesSomeLane(fiber.lanes, root.renderLanes)
+  ) {
+    const compare = memoType.compare || shallowEqual;
+    if (compare(current.memoizedProps, fiber.pendingProps)) {
+      fiber.pendingProps = current.memoizedProps;
+      return bailoutOnAlreadyFinishedWork(root, current, fiber);
+    }
+  }
+
+  updateFunctionComponent(root, fiber, memoType.type);
+  return fiber.child || null;
+}
+
+function bailoutOnAlreadyFinishedWork(
+  root: FiberRoot,
+  current: Fiber,
+  workInProgress: Fiber,
+) {
+  if (includesSomeLane(workInProgress.childLanes, root.renderLanes)) {
+    cloneChildFibers(current, workInProgress);
+    return workInProgress.child || null;
+  }
+
+  cloneBailedOutSubtree(current, workInProgress);
+  return null;
+}
+
+function cloneFiber(current: Fiber, parent: Fiber): Fiber {
+  const clone: Fiber = {
+    root: parent.root,
+    lanes: current.lanes,
+    childLanes: current.childLanes,
+    type: current.type,
+    pendingProps: current.memoizedProps ?? current.pendingProps,
+    memoizedProps: current.memoizedProps,
+    ref: current.ref,
+    dom: current.dom,
+    parent,
+    alternate: current,
+    isBailoutClone: true,
+    effectTag: "UPDATE",
+    key: current.key ?? null,
+    index: current.index,
+    memoizedState: current.memoizedState,
+  };
+  bindWorkInProgressStateQueues(clone);
+  return clone;
+}
+
+function cloneChildFibers(current: Fiber, workInProgress: Fiber) {
+  workInProgress.child = undefined;
+  let currentChild = current.child;
+  let previousClone: Fiber | undefined;
+
+  while (currentChild) {
+    const clone = cloneFiber(currentChild, workInProgress);
+    if (previousClone) previousClone.sibling = clone;
+    else workInProgress.child = clone;
+    previousClone = clone;
+    currentChild = currentChild.sibling;
+  }
+}
+
+function cloneBailedOutSubtree(current: Fiber, workInProgress: Fiber) {
+  cloneChildFibers(current, workInProgress);
+
+  let currentChild = current.child;
+  let clonedChild = workInProgress.child;
+  while (currentChild && clonedChild) {
+    cloneBailedOutSubtree(currentChild, clonedChild);
+    currentChild = currentChild.sibling;
+    clonedChild = clonedChild.sibling;
+  }
 }
 
 function createDeletionFiber(fiber: Fiber, parent: Fiber): Fiber {
@@ -149,7 +281,9 @@ function reconcileChildren(
         lanes: matchedFiber.lanes,
         childLanes: matchedFiber.childLanes,
         type: matchedFiber.type,
-        props: element.props,
+        pendingProps: element.props,
+        memoizedProps: matchedFiber.memoizedProps,
+        ref: element.ref,
         dom: matchedFiber.dom,
         parent: workInProgressFiber,
         alternate: matchedFiber,
@@ -165,7 +299,9 @@ function reconcileChildren(
         lanes: NoLane,
         childLanes: NoLane,
         type: element.type,
-        props: element.props,
+        pendingProps: element.props,
+        memoizedProps: null,
+        ref: element.ref,
         dom: null,
         parent: workInProgressFiber,
         alternate: null,

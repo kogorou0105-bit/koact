@@ -43,7 +43,9 @@ function createFiber(root: FiberRoot, parent?: Fiber): Fiber {
   return {
     root,
     parent,
-    props: { children: [] },
+    pendingProps: {},
+    memoizedProps: null,
+    ref: null,
     lanes: NoLane,
     childLanes: NoLane,
   };

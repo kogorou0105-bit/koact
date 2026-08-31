@@ -1,7 +1,7 @@
 # Koact 现代更新机制实施计划
 
-状态：阶段 A、阶段 B 已完成，阶段 C 规划中
-更新时间：2026-08-29
+状态：阶段 A、阶段 B、阶段 C 已完成
+更新时间：2026-08-30
 
 ## 1. 背景
 
@@ -11,7 +11,7 @@ reconciliation、effect/ref 生命周期、环形 UpdateQueue 和自动批处理
 - `useState` 已支持 `DefaultLane/TransitionLane` 和 Rebase，单 Root 会分轮处理最高优先级 Lane。
 - Root 会记录 Render 期间到达的 Lane：同优或更高优更新重启 WIP，低优更新继续等待。
 - 同一 JavaScript 回调中的多次更新通过微任务合并 Root 调度。
-- 每个函数组件都会重新执行，没有 `memo` 和基于子树优先级的 Bailout。
+- `memo` 已能结合 props、ref、Fiber Lane 与 `childLanes` 跳过组件执行或稳定子树遍历。
 
 下一阶段将围绕一条完整链路改造：
 
@@ -58,7 +58,7 @@ dispatch action
 | --- | --- | --- | --- |
 | A | 已完成 | 环形 UpdateQueue + 自动批处理 | Lane 需要可跳过、可重放的更新队列 |
 | B | 已完成 | Lanes + `startTransition` | Bailout 必须知道当前 Fiber 和子树是否有目标优先级 |
-| C | 规划中 | `memo` + Fiber Bailout | 依赖 `lanes`、`childLanes` 和完整的子树克隆逻辑 |
+| C | 已完成 | `memo` + Fiber Bailout | 依赖 `lanes`、`childLanes` 和完整的子树克隆逻辑 |
 
 每个阶段独立提交，只有当前阶段测试通过后才进入下一阶段。
 
@@ -436,11 +436,11 @@ CPU、内存、操作系统、Node、`playwright-cli`、列表规模和采样参
 - `startTransition` API 可用于示例并具有确定性测试。
 - 版本号只跟踪 Render 期间是否有更新和卸载完成状态，不再承担优先级判断。
 
-## 7. 阶段 C：memo 与 Fiber Bailout
+## 7. 阶段 C：memo 与 Fiber Bailout（已完成）
 
 ### 7.1 公共 API
 
-在 `@koact/react` 中增加：
+已在 `@koact/react` 中增加：
 
 ```ts
 export function memo<Props>(
@@ -461,7 +461,7 @@ interface MemoComponent<Props> {
 }
 ```
 
-阶段 C 先调整 Element 模型：
+阶段 C 同时调整了 Element 模型：
 
 ```ts
 interface ReactElement {
@@ -496,6 +496,7 @@ memoizedProps: Props | null;
 - Reconciliation 写入 `pendingProps`。
 - Commit 成功后更新 `memoizedProps`。
 - Comparator 对比 current 的 `memoizedProps` 与 WIP 的 `pendingProps`。
+- Comparator 接受 Bailout 时复用 current 的 props，使下一次比较仍以最后一次组件实际执行的 props 为基线。
 
 保留现有 `props` 会让“待处理 props”和“已提交 props”语义混杂，因此阶段 C 应完成字段迁移，而不是继续增加条件判断。
 
@@ -506,14 +507,14 @@ Memo Bailout 分为两级。
 跳过 Memo 组件函数执行需要：
 
 ```text
-component type 相同
+存在已提交的 current Fiber
 compare(previousProps, nextProps) === true
 ref 未变化
 fiber.lanes 与 renderLanes 无交集
-本 Fiber 没有 Placement/Deletion 工作
 ```
 
-如果 `childLanes` 与 `renderLanes` 有交集，只跳过 Memo 函数本身，然后克隆直接 child
+Keyed 移动产生的 Placement 不阻止组件函数 Bailout，移动标记保留在 Memo Fiber 上。如果
+`childLanes` 与 `renderLanes` 有交集，只跳过 Memo 函数本身，然后克隆直接 child
 并继续向下 Begin Work。如果没有交集，才允许跳过整棵子树。
 
 必须明确：props 相同不能屏蔽组件自身的 State 更新；父组件函数被跳过也不能屏蔽子树中的目标 Lane。
@@ -531,9 +532,10 @@ function cloneBailedOutSubtree(current: Fiber, workInProgress: Fiber): void;
 - 子树仍有目标 Lane：只浅克隆直接 child/sibling，修正 parent，然后继续 Begin Work。
 - 整棵子树无目标 Lane：递归克隆 Fiber 结构，修正所有 parent/sibling/alternate，但不执行组件函数或 Reconciliation。
 
-递归结构克隆会保留 O(n) Fiber 分配成本，但能在不重写现有 Commit 的前提下保证 current/WIP
-隔离，并显著减少组件执行和 Reconciliation。若后续要消除该分配，再单独引入双缓冲 Fiber、
-subtree flags 和按 flags 提交，不能在本阶段直接深层复用 current 节点。
+递归结构克隆会保留 O(n) Fiber 分配成本，而且当前 Commit 仍会全树遍历；它能在不重写现有
+Commit 的前提下保证 current/WIP 隔离，并显著减少组件执行和 Reconciliation。单个深层克隆
+目前不可中断。若后续要消除该分配并恢复细粒度让步，再单独引入双缓冲 Fiber、subtree flags
+和按 flags 提交，不能在本阶段直接深层复用 current 节点。
 
 keyed move 与 Memo 同时发生时，DOM Placement 仍必须执行；Memo 只能跳过组件计算，不能吞掉父级 Reconciliation 产生的移动标记。
 
@@ -562,7 +564,7 @@ Lane 清理前调用用户函数。这样 ref callback 或 effect cleanup/setup 
 
 ### 7.6 阶段 C 测试
 
-新增 `packages/react-dom/src/__test__/memo.test.ts`：
+已新增 `packages/react-dom/src/__test__/memo.test.ts`：
 
 - 默认浅比较跳过函数执行。
 - 自定义 comparator 生效。
@@ -574,6 +576,7 @@ Lane 清理前调用用户函数。这样 ref callback 或 effect cleanup/setup 
 - Memo 组件 keyed 重排保留状态和 DOM identity。
 - Render 中断时 `memoizedProps` 不提前更新。
 - ref/effect 回调在 Commit 中调度同 Lane 更新时，该更新仍保留在 `pendingLanes`。
+- 5000 行稳定更新中，普通组件与 Memo 组件的执行次数和 Begin Work 数量形成确定性对照。
 
 ### 7.7 阶段 C 完成标准
 
@@ -605,7 +608,7 @@ scripts/benchmark-concurrent.mjs
 benchmarks/concurrent-lab.md
 ```
 
-阶段 C 计划新增：
+阶段 C 已新增：
 
 ```text
 packages/react-dom/src/__test__/memo.test.ts
@@ -618,10 +621,10 @@ packages/react-dom/src/types.ts
 packages/react-dom/src/hooks.ts
 packages/react-dom/src/scheduler.ts
 packages/react-dom/src/commit.ts
-packages/react-dom/src/__test__/runtime.test.ts
+packages/react-dom/src/__test__/runtime.test.ts（P2.5 后拆分为六个领域套件）
 ```
 
-阶段 B/C 预计修改：
+阶段 B/C 已修改：
 
 ```text
 packages/react/src/index.ts
@@ -643,6 +646,9 @@ packages/vite-plugin-koact-devtools/client.js
 ```bash
 pnpm check
 ```
+
+阶段 C 完成时共有 10 个测试文件、82 个测试通过；Statements 92.18%、Branches 85.74%、
+Functions 97%、Lines 93.55%，并完成全部示例构建与 Chrome 双模式冒烟测试。
 
 最终阶段额外要求：
 
@@ -666,7 +672,7 @@ docs: explain concurrent update architecture
 
 ## 11. 面试讲解主线
 
-完成后应能用一个具体例子回答以下问题：
+当前实现可以用具体例子回答以下问题：
 
 1. 为什么普通 action 数组不足以支持并发更新？
 2. 为什么跳过低优更新后，还要克隆后续已执行更新？

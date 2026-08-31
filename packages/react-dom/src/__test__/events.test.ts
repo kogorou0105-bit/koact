@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import React, { startTransition, useState } from "@koact/react";
+import { describe, expect, it, vi } from "vitest";
+import { startTransition, useState } from "@koact/react";
 import { createRoot } from "../index";
 import {
   KoactEvents,
@@ -13,9 +13,13 @@ import {
   SyncLane,
   TransitionLane,
 } from "../lanes";
-import { __resetSchedulerForTests } from "../scheduler";
+import {
+  flushWork,
+  h,
+  mockIdleCallbacks,
+  setupRuntimeTests,
+} from "./testUtils";
 
-const h = React.createElement;
 const eventNames: Array<keyof KoactEventMap> = [
   "update-scheduled",
   "render-start",
@@ -24,33 +28,16 @@ const eventNames: Array<keyof KoactEventMap> = [
   "commit",
 ];
 
+setupRuntimeTests();
+
 describe("scheduler events", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    __resetSchedulerForTests();
-  });
-
-  afterEach(() => {
-    __resetSchedulerForTests();
-    vi.clearAllTimers();
-    vi.useRealTimers();
-  });
-
   it("emits a complete scheduling lifecycle with metrics", async () => {
-    const previousRequestIdleCallback = globalThis.requestIdleCallback;
-    const previousCancelIdleCallback = globalThis.cancelIdleCallback;
-    const idleCallbacks: IdleRequestCallback[] = [];
+    const { pendingCallbacks: idleCallbacks } = mockIdleCallbacks();
     const events: Array<{
       type: keyof KoactEventMap;
       data: SchedulerEvent;
     }> = [];
-    let callbackId = 0;
 
-    globalThis.requestIdleCallback = vi.fn((callback) => {
-      idleCallbacks.push(callback);
-      return ++callbackId;
-    });
-    globalThis.cancelIdleCallback = vi.fn();
     const unsubscribers = eventNames.map((type) =>
       KoactEvents.on(type, (data) => events.push({ type, data })),
     );
@@ -126,16 +113,6 @@ describe("scheduler events", () => {
       expect(container.textContent).toBe("11");
     } finally {
       unsubscribers.forEach((unsubscribe) => unsubscribe());
-      if (previousRequestIdleCallback) {
-        globalThis.requestIdleCallback = previousRequestIdleCallback;
-      } else {
-        Reflect.deleteProperty(globalThis, "requestIdleCallback");
-      }
-      if (previousCancelIdleCallback) {
-        globalThis.cancelIdleCallback = previousCancelIdleCallback;
-      } else {
-        Reflect.deleteProperty(globalThis, "cancelIdleCallback");
-      }
     }
   });
 
@@ -154,7 +131,7 @@ describe("scheduler events", () => {
       const root = createRoot(container);
 
       expect(() => root.render(h("span", null, "committed"))).not.toThrow();
-      await vi.runAllTimersAsync();
+      await flushWork();
 
       expect(container.textContent).toBe("committed");
       expect(received).toHaveLength(1);
@@ -174,7 +151,6 @@ describe("scheduler events", () => {
     const unsubscribe = KoactEvents.on("render-abort", (event) => {
       aborts.push(event);
     });
-    const previousReportError = globalThis.reportError;
     globalThis.reportError = vi.fn();
 
     try {
@@ -183,7 +159,7 @@ describe("scheduler events", () => {
       }
 
       createRoot(document.createElement("div")).render(h(Broken, null));
-      await vi.runAllTimersAsync();
+      await flushWork();
 
       expect(aborts).toHaveLength(1);
       expect(aborts[0]).toMatchObject({
@@ -194,8 +170,6 @@ describe("scheduler events", () => {
       });
     } finally {
       unsubscribe();
-      if (previousReportError) globalThis.reportError = previousReportError;
-      else Reflect.deleteProperty(globalThis, "reportError");
     }
   });
 
@@ -230,7 +204,7 @@ describe("scheduler events", () => {
     try {
       const container = document.createElement("div");
       createRoot(container).render(h("span", null, "devtools"));
-      await vi.runAllTimersAsync();
+      await flushWork();
 
       expect(container.textContent).toBe("devtools");
       expect(emit.mock.calls.map(([event]) => event)).toEqual([

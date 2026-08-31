@@ -1,8 +1,8 @@
 # Koact 项目路线图
 
-状态：P0、P1、P1.5 已完成，P2 待开始
+状态：P0、P1、P1.5、P2、P2.5 已完成，P3 待开始
 
-更新时间：2026-08-29
+更新时间：2026-08-30
 
 ## 1. 目标
 
@@ -22,7 +22,8 @@ Lanes、Update Rebase 和 Fiber Bailout 的底层设计见[现代更新机制实
 | P0 | 已完成 | 更新基础与工程门禁 | UpdateQueue、自动批处理、CI、覆盖率、架构文档 |
 | P1 | 已完成 | 并发调度核心 | Lanes、`startTransition`、抢占、Rebase |
 | P1.5 | 已完成 | 可观测性与性能证据 | 调度时间线、Concurrent Lab、Benchmark |
-| P2 | 待开始 | 渲染 Bailout | `memo`、`childLanes`、Fiber Bailout |
+| P2 | 已完成 | 渲染 Bailout | `memo`、`childLanes`、Fiber Bailout |
+| P2.5 | 已完成 | Commit 安全与可维护性 | 失败重试、Scheduler 模块化、测试拆分 |
 | P3 | 待开始 | 事件系统 | Root 事件委托、捕获/冒泡、批处理边界 |
 
 任何阶段只有在实现、测试、文档和 `pnpm check` 全部完成后，才能标记为已完成。
@@ -142,36 +143,60 @@ perf: add reproducible scheduler benchmarks
 
 ## 6. P2：memo 与 Fiber Bailout
 
-状态：待开始，依赖 P1
+状态：已完成（2026-08-30）
 
 ### 实现清单
 
-- [ ] 在 `@koact/react` 增加 `memo` 与可选 comparator。
-- [ ] 将 `key/ref` 从 props 中提取到 Element/Fiber 顶层。
-- [ ] 将 Fiber props 拆分为 `pendingProps/memoizedProps`。
-- [ ] 默认 comparator 使用浅比较和 `Object.is`。
-- [ ] props 未变化且本 Fiber 无目标 Lane 时跳过组件函数执行。
-- [ ] `childLanes` 命中时跳过父组件函数，但继续处理有更新的子树。
-- [ ] 无目标 `childLanes` 时复用或克隆稳定子树，不执行 Reconciliation。
-- [ ] Commit 后清理已完成 Lane，并保持 current/WIP 隔离。
+- [x] 在 `@koact/react` 增加 `memo` 与可选 comparator。
+- [x] 将 `key/ref` 从 props 中提取到 Element/Fiber 顶层。
+- [x] 将 Fiber props 拆分为 `pendingProps/memoizedProps`。
+- [x] 默认 comparator 使用浅比较和 `Object.is`。
+- [x] props 未变化且本 Fiber 无目标 Lane 时跳过组件函数执行。
+- [x] `childLanes` 命中时跳过父组件函数，但继续处理有更新的子树。
+- [x] 无目标 `childLanes` 时克隆稳定子树，不执行组件函数或 Reconciliation。
+- [x] Commit 后清理已完成 Lane，并保持 current/WIP 隔离。
 
 ### 必测场景
 
-- [ ] 默认浅比较和自定义 comparator。
-- [ ] `Object.is(NaN, NaN)` 与 `Object.is(0, -0)` 语义。
-- [ ] Memo 组件自身 state 更新仍然生效。
-- [ ] Memo 父组件不会吞掉子组件更新。
-- [ ] Keyed 重排时状态和 DOM identity 保持不变。
-- [ ] Render 中断时 `memoizedProps` 不会提前发布。
-- [ ] ref/effect 回调中产生的同 Lane 更新不会被 Commit 清理掉。
+- [x] 默认浅比较和自定义 comparator。
+- [x] `Object.is(NaN, NaN)` 与 `Object.is(0, -0)` 语义。
+- [x] Memo 组件自身 state 更新仍然生效。
+- [x] Memo 父组件不会吞掉子组件更新，且未命中的兄弟节点不会重新执行。
+- [x] Keyed 重排时状态和 DOM identity 保持不变。
+- [x] Render 中断时 `memoizedProps` 不会提前发布。
+- [x] ref/effect 回调中产生的同 Lane 更新不会被 Commit 清理掉。
 
 ### 完成标准
 
-- [ ] 记录优化前后的组件执行次数和 Begin Work 节点数。
-- [ ] 5000 项场景中，稳定子树的遍历量有可重复下降。
-- [ ] 正确性测试与性能指标同时通过。
+- [x] 记录优化前后的组件执行次数和 Begin Work 节点数。
+- [x] 5000 项场景中，稳定更新的 Begin Work 从 15,003 降至 5,003，行组件执行从 5,000 降至 0。
+- [x] 正确性测试、覆盖率门槛和全部示例构建同时通过。
 
-## 7. P3：Root 事件系统
+完整 Bailout 当前通过递归克隆 Fiber 结构保持 current/WIP 隔离，因此 Fiber 分配和 Commit 遍历
+仍是 O(n)；本阶段验证的是组件执行和 Reconciliation 工作量下降，不将其表述为常数级更新。
+
+## 7. P2.5：Commit 安全与可维护性
+
+状态：已完成（2026-08-30）
+
+### 实现清单
+
+- [x] 宿主 mutation 失败时不发布 `root.current`、不消费 Lane，也不执行 ref/effect。
+- [x] 所有宿主 mutation 成功后才解绑被删除子树的 StateQueue。
+- [x] 保留失败 Lane，并允许通过后续 `root.render` 或重复 `root.unmount` 显式重试。
+- [x] 将 Host Callback、Root 调度队列和 Render Stack 从 Scheduler 门面中拆分。
+- [x] 抽取 Commit 与 Scheduler 共用的错误上报函数。
+- [x] 将单个 Runtime 大测试文件拆为 state、lanes、batching、concurrency、reconciliation 和 errors 六个领域套件。
+- [x] 抽取 fake timers、Root reset 和可控 Idle Callback 的共享测试工具。
+
+### 完成标准
+
+- [x] Scheduler 门面从 444 行降至 263 行，公共导出保持不变。
+- [x] 16 个测试文件、86 个测试通过。
+- [x] Statements 93.15%、Branches 85.99%、Functions 97.61%、Lines 94.72%。
+- [x] `pnpm check` 和全部示例构建通过。
+
+## 8. P3：Root 事件系统
 
 状态：待开始，依赖 P1
 
@@ -200,9 +225,9 @@ perf: add reproducible scheduler benchmarks
 - [ ] 事件顺序、传播停止、更新和卸载均有确定性测试。
 - [ ] DevTools 能将事件来源与后续调度记录关联起来。
 
-## 8. 暂缓范围
+## 9. 暂缓范围
 
-完成 P1、P1.5 和 P2 前，不优先投入以下方向：
+完成 P3 前，不优先投入以下方向：
 
 - Suspense、Server Components、SSR 和 Hydration。
 - Class Component、Router、状态库和大量补充 Hooks。
@@ -210,7 +235,7 @@ perf: add reproducible scheduler benchmarks
 - 继续扩展 mini-vite、HMR 或依赖预构建。
 - 以部署或页面视觉包装替代 Runtime 正确性与性能证据。
 
-## 9. 执行约定
+## 10. 执行约定
 
 每次只推进一个可独立验收的条目：
 
